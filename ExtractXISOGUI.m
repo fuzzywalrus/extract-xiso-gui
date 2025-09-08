@@ -241,6 +241,11 @@
             executablePath = [executablePath stringByAppendingPathComponent:@"build/extract-xiso"];
         }
         
+        // Final fallback for development
+        if (![[NSFileManager defaultManager] fileExistsAtPath:executablePath]) {
+            executablePath = @"./build/extract-xiso";
+        }
+        
         NSTask *task = [[NSTask alloc] init];
         [task setLaunchPath:executablePath];
         [task setArguments:arguments];

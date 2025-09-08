@@ -25,39 +25,34 @@ A simple graphical user interface wrapper for the extract-xiso command-line tool
 ### Build Instructions
 
 ```bash
-# Build both CLI and GUI versions
+# Build both CLI and app bundle (recommended)
 make all
 
-# Or build GUI specifically (automatically builds CLI first)
+# Or build app bundle specifically (automatically builds CLI first)
+make app
+
+# Legacy: build GUI (now creates app bundle)
 make gui
-
-# Or use the individual build commands:
-# 1. Build CLI first
-cd build
-cmake ..
-make
-cd ..
-
-# 2. Build GUI
-clang -Wall -Wextra -fobjc-arc -framework Cocoa -framework Foundation -o build/gui/extract-xiso-gui ExtractXISOGUI.m
-cp build/extract-xiso build/gui/
 ```
 
 ## Running
 
-### Option 1: Use the launch script
+### Option 1: Double-click the app (easiest!)
+After building, simply **double-click** `build/Extract-XISO.app` in Finder!
+
+### Option 2: Use the launch script
 ```bash
 ./launch-gui.sh
 ```
 
-### Option 2: Use make
+### Option 3: Use make
 ```bash
-make run-gui
+make run-app
 ```
 
-### Option 3: Run directly
+### Option 4: Open via command line
 ```bash
-./build/gui/extract-xiso-gui
+open build/Extract-XISO.app
 ```
 
 ## Usage
@@ -97,13 +92,17 @@ The GUI generates and executes extract-xiso commands. For example:
 
 ## Installation
 
-To install both CLI and GUI versions system-wide:
+To install both CLI and app system-wide:
 
 ```bash
 make install
 ```
 
-This copies the binaries to `/usr/local/bin/`.
+This copies:
+- CLI binary to `/usr/local/bin/extract-xiso`
+- App bundle to `/Applications/Extract-XISO.app`
+
+After installation, you can find "Extract-XISO" in your Applications folder!
 
 ## Troubleshooting
 

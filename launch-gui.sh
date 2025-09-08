@@ -8,12 +8,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Change to the script directory
 cd "$SCRIPT_DIR"
 
-# Build the GUI if it doesn't exist
-if [ ! -f "build/gui/extract-xiso-gui" ]; then
-    echo "Building GUI application..."
-    make gui
+# Build the app if it doesn't exist
+if [ ! -d "build/Extract-XISO.app" ]; then
+    echo "Building app bundle..."
+    make app
 fi
 
-# Launch the GUI
+# Launch the app bundle
 echo "Launching Extract-XISO GUI..."
-./build/gui/extract-xiso-gui
+open build/Extract-XISO.app
