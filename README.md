@@ -5,10 +5,12 @@ A native macOS GUI wrapper for the [extract-xiso](https://github.com/XboxDev/ext
 ## 🎉 What's New - GUI Version!
 
 - **🖥️ Native macOS App**: Double-clickable `.app` bundle with Cocoa interface
+- **📦 Fully Self-Contained**: CLI binary bundled inside - no dependencies needed!
 - **👆 Point & Click**: Easy file selection with native file browsers  
 - **📊 Visual Feedback**: Progress bars and real-time status updates
 - **🔧 All CLI Features**: Full support for Extract, Create, List, and Rewrite modes
 - **⚡ One-Click Install**: System-wide installation script included
+- **🚀 Zero Setup**: Works immediately after download - no installation required!
 
 ## 📦 Quick Start
 
@@ -135,8 +137,11 @@ make install
 
 ## 📁 What's Included
 
-- **`Extract-XISO.app`** - Double-clickable GUI application
-- **`extract-xiso`** - Command-line binary (v2.7.1)
+- **`Extract-XISO.app`** - Double-clickable GUI application (fully self-contained!)
+  - GUI executable in `Contents/MacOS/`
+  - CLI binary bundled in `Contents/Resources/`
+  - Complete app bundle - no external dependencies
+- **`extract-xiso`** - Standalone command-line binary (v2.7.1)
 - **`launch-gui.sh`** - Convenience launcher script  
 - **Build system** - Makefile for easy compilation
 - **Documentation** - Complete usage guides
@@ -158,9 +163,11 @@ make install
 
 - **GUI Framework**: Objective-C with Cocoa
 - **CLI Core**: Original C implementation (v2.7.1)
-- **Architecture**: GUI wrapper executes CLI binary
+- **Architecture**: GUI wrapper executes bundled CLI binary
 - **Threading**: Background execution keeps UI responsive
-- **Bundle**: Complete `.app` structure with embedded CLI
+- **Bundle Structure**: Complete `.app` with embedded CLI
+- **Dependencies**: Only system libraries - fully portable
+- **Binary Location**: `Contents/Resources/extract-xiso` (auto-detected)
 
 ## 🤝 Contributing
 
