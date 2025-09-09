@@ -2,17 +2,16 @@
 
 A native macOS GUI wrapper for the [extract-xiso](https://github.com/XboxDev/extract-xiso) command-line utility. Extract-XISO allows creation, modification, and extraction of Xbox ISO files (XISOs), and this GUI version makes it accessible to macOS users through a native interface.
 
-## 🎉 What's New - GUI Version!
+The Xbox ISO format is a proprietary disc image format used by the original Xbox console. It is based on the ISO 9660 file system but includes additional metadata and encryption specific to the Xbox. Emulators, like XEMU, on the other hand, expect standard ISOs. Extract XISO is a tool that helps to extract the contents of Xbox ISOs and convert them into standard ISO that can be used by these emulators.
 
-- **🖥️ Native macOS App**: Double-clickable `.app` bundle with Cocoa interface
-- **📦 Fully Self-Contained**: CLI binary bundled inside - no dependencies needed!
-- **👆 Point & Click**: Easy file selection with native file browsers  
-- **📊 Visual Feedback**: Progress bars and real-time status updates
-- **🔧 All CLI Features**: Full support for Extract, Create, List, and Rewrite modes
-- **⚡ One-Click Install**: System-wide installation script included
-- **🚀 Zero Setup**: Works immediately after download - no installation required!
+- **Native macOS App**: Double-clickable `.app` bundle with Cocoa interface
+- **Fully Self-Contained**: CLI binary bundled inside - no dependencies needed!
+- **Point & Click**: Easy file selection with native file browsers  
+- **Visual Feedback**: Progress bars and real-time status updates
+- **All CLI Features**: Full support for Extract, Create, List, and Rewrite modes
+- **Zero Setup**: Works immediately after download - no installation required!
 
-## 📦 Quick Start
+##  Quick Start
 
 ### Option 1: Download Release (Recommended)
 1. Download the latest release from [GitHub Releases](https://github.com/fuzzywalrus/extract-xiso-gui/releases)
@@ -30,14 +29,15 @@ make all
 make run-app
 ```
 
-## 🖥️ GUI Features
+## GUI Features
 
 The GUI provides an intuitive interface for all extract-xiso operations:
 
-### **Extract Mode** (Default)
+### **Extract Mode and repackage** (Default)
 - Select XISO files to extract
 - Choose output directory  
 - Extract Xbox game files to folders
+- Creates a decrypted ISO
 
 ### **Create Mode**
 - Select source directory
@@ -52,9 +52,11 @@ The GUI provides an intuitive interface for all extract-xiso operations:
 - Optimize XISO file structure
 - Batch processing support
 
-## ⌨️ Command Line Usage
 
-The CLI version supports all original functionality:
+
+## Command Line Usage
+
+The following is documenation from the CLI version supports all original functionality:
 
 ### Create XISO
 ```bash
@@ -104,7 +106,7 @@ The CLI version supports all original functionality:
 -v                  Show version info
 ```
 
-## 🔨 Building
+##  Building
 
 ### Requirements
 - **macOS**: 10.10+ with Xcode command line tools
@@ -135,31 +137,19 @@ make install
 # - GUI app to /Applications/Extract-XISO.app
 ```
 
-## 📁 What's Included
+## System Requirements
 
-- **`Extract-XISO.app`** - Double-clickable GUI application (fully self-contained!)
-  - GUI executable in `Contents/MacOS/`
-  - CLI binary bundled in `Contents/Resources/`
-  - Complete app bundle - no external dependencies
-- **`extract-xiso`** - Standalone command-line binary (v2.7.1)
-- **`launch-gui.sh`** - Convenience launcher script  
-- **Build system** - Makefile for easy compilation
-- **Documentation** - Complete usage guides
-
-## 💻 System Requirements
-
-- **macOS**: 10.10 (Yosemite) or later
+- **macOS**: 15 or later
 - **Architecture**: Intel or Apple Silicon
 - **Disk Space**: ~1MB
 - **Memory**: Minimal - works with system resources
 
-## 🎯 File Support
+## File Support
 
 - **`.iso`** - Standard ISO files
-- **`.xiso`** - Xbox ISO files  
 - **Directories** - For creating XISOs from game folders
 
-## 🔧 Technical Details
+## Technical Details
 
 - **GUI Framework**: Objective-C with Cocoa
 - **CLI Core**: Original C implementation (v2.7.1)
@@ -169,15 +159,15 @@ make install
 - **Dependencies**: Only system libraries - fully portable
 - **Binary Location**: `Contents/Resources/extract-xiso` (auto-detected)
 
-## 🤝 Contributing
+## Contributing
 
 This is a GUI wrapper for the original [extract-xiso](https://github.com/XboxDev/extract-xiso) project. 
 
-- **CLI Issues**: Report to the [main extract-xiso project](https://github.com/XboxDev/extract-xiso)
+- **Main functionality Issues**: Report to the [main extract-xiso project](https://github.com/XboxDev/extract-xiso)
 - **GUI Issues**: Report here for interface-related problems
 - **Feature Requests**: Welcome for GUI improvements
 
-## 📄 License
+##  License
 
 This GUI wrapper uses the same license as the original extract-xiso project. See `LICENSE.TXT` for details.
 
@@ -185,4 +175,4 @@ Original extract-xiso created by [*in*](mailto:in@fishtank.com), currently maint
 
 ---
 
-**Enjoy the new GUI! 🎊** For questions or support, please check the documentation or open an issue.
+**Enjoy the new GUI! ** For questions or support, please check the documentation or open an issue.
