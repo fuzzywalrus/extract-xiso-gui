@@ -1,8 +1,8 @@
 # Makefile for Extract-XISO GUI
 
 CC = clang
-CFLAGS = -Wall -Wextra -std=c99
-OBJCFLAGS = -Wall -Wextra -fobjc-arc
+CFLAGS = -Wall -Wextra -std=c99 -mmacosx-version-min=11.0
+OBJCFLAGS = -Wall -Wextra -fobjc-arc -mmacosx-version-min=11.0
 FRAMEWORKS = -framework Cocoa -framework Foundation
 
 # Targets

@@ -109,7 +109,7 @@ The following is documenation from the CLI version supports all original functio
 ##  Building
 
 ### Requirements
-- **macOS**: 10.10+ with Xcode command line tools
+- **macOS**: 11.0+ with Xcode command line tools
 - **Tools**: cmake, make, clang
 
 ### Build Commands
@@ -139,7 +139,7 @@ make install
 
 ## System Requirements
 
-- **macOS**: 15 or later
+- **macOS**: 11.0 (Big Sur) or later
 - **Architecture**: Intel or Apple Silicon
 - **Disk Space**: ~1MB
 - **Memory**: Minimal - works with system resources
