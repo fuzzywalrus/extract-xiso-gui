@@ -11,7 +11,47 @@
 @implementation ExtractXISOGUI
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+    [self setupMenu];
     [self setupUI];
+}
+
+- (void)setupMenu {
+    // Create the main menu bar
+    NSMenu *mainMenu = [[NSMenu alloc] init];
+    
+    // Create the application menu (first menu item)
+    NSMenu *appMenu = [[NSMenu alloc] init];
+    NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
+    [appMenuItem setSubmenu:appMenu];
+    [mainMenu addItem:appMenuItem];
+    
+    // Add "About Extract-XISO" menu item
+    NSMenuItem *aboutItem = [[NSMenuItem alloc] initWithTitle:@"About Extract-XISO" 
+                                                      action:@selector(showAbout:) 
+                                               keyEquivalent:@""];
+    [aboutItem setTarget:self];
+    [appMenu addItem:aboutItem];
+    
+    // Add separator
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    
+    // Add "Quit Extract-XISO" menu item with Command+Q
+    NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit Extract-XISO" 
+                                                     action:@selector(terminate:) 
+                                              keyEquivalent:@"q"];
+    [quitItem setTarget:[NSApplication sharedApplication]];
+    [appMenu addItem:quitItem];
+    
+    // Set the main menu
+    [[NSApplication sharedApplication] setMainMenu:mainMenu];
+}
+
+- (IBAction)showAbout:(id)sender {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"Extract-XISO GUI v2.7.1"];
+    [alert setInformativeText:@"A native macOS GUI wrapper for extract-xiso.\n\nCreated for easy Xbox ISO extraction and repackaging.\n\nOriginal extract-xiso by *in* <in@fishtank.com>"];
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
 }
 
 - (void)setupUI {

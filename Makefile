@@ -38,6 +38,10 @@ app: cli
 	$(CC) $(OBJCFLAGS) $(FRAMEWORKS) -o $(APP_MACOS)/$(GUI_TARGET) $(GUI_SOURCE)
 	@echo "Copying CLI binary to app bundle..."
 	@cp $(BUILD_DIR)/$(CLI_TARGET) $(APP_RESOURCES)/
+	@echo "Copying Info.plist..."
+	@cp Info.plist $(APP_CONTENTS)/
+	@echo "Copying app icon..."
+	@cp Icon-Mac-Default-1024x1024@1x.icns $(APP_RESOURCES)/
 	@echo "App bundle created: $(APP_DIR)"
 
 # Legacy GUI target for compatibility
