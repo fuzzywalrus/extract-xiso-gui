@@ -48,8 +48,8 @@
 
 - (IBAction)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
-    [alert setMessageText:@"Extract-XISO GUI v2.7.1"];
-    [alert setInformativeText:@"A native macOS GUI wrapper for extract-xiso.\n\nCreated for easy Xbox ISO extraction and repackaging.\n\nOriginal extract-xiso by *in* <in@fishtank.com>"];
+    [alert setMessageText:@"Extract-XISO GUI"];
+    [alert setInformativeText:@"Extract-XISO v2.7.1\n\nA tool for creating, extracting, and listing Xbox ISO files.\n\nOriginal CLI by XboxDev organization\nGUI version by Greg Gant, greggant.com"];
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];
 }

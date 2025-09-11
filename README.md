@@ -15,7 +15,11 @@ The Xbox ISO format is a proprietary disc image format used by the original Xbox
 
 ### Option 1: Download Release (Recommended)
 1. Download the latest release from [GitHub Releases](https://github.com/fuzzywalrus/extract-xiso-gui/releases)
-2. Double-click `Extract-XISO.app` to launch the GUI
+2. **Important**: On first launch, macOS may show "Apple cannot check it for malicious software"
+   - Right-click the app and select "Open" 
+   - Click "Open" in the security dialog
+   - Or go to System Preferences > Security & Privacy > General and click "Open Anyway"
+3. Double-click `Extract-XISO.app` to launch the GUI
 
 
 ### Option 2: Build from Source

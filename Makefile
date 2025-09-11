@@ -1,8 +1,8 @@
 # Makefile for Extract-XISO GUI
 
 CC = clang
-CFLAGS = -Wall -Wextra -std=c99 -mmacosx-version-min=11.0
-OBJCFLAGS = -Wall -Wextra -fobjc-arc -mmacosx-version-min=11.0
+CFLAGS = -Wall -Wextra -std=c99 -mmacosx-version-min=11.0 -arch x86_64 -arch arm64
+OBJCFLAGS = -Wall -Wextra -fobjc-arc -mmacosx-version-min=11.0 -arch x86_64 -arch arm64
 FRAMEWORKS = -framework Cocoa -framework Foundation
 
 # Targets
@@ -21,7 +21,7 @@ APP_CONTENTS = $(APP_DIR)/Contents
 APP_MACOS = $(APP_CONTENTS)/MacOS
 APP_RESOURCES = $(APP_CONTENTS)/Resources
 
-.PHONY: all app gui cli clean install
+.PHONY: all app gui cli clean install notarize staple
 
 all: cli app
 
@@ -42,8 +42,10 @@ app: cli
 	@cp Info.plist $(APP_CONTENTS)/
 	@echo "Copying app icon..."
 	@cp Icon-Mac-Default-1024x1024@1x.icns $(APP_RESOURCES)/
+	@echo "Copying launch script..."
+	@cp launch-extract-xiso.sh $(BUILD_DIR)/
 	@echo "Code signing app bundle..."
-	@codesign --force --deep --sign - $(APP_DIR)
+	@codesign --force --deep --options runtime --sign "Developer ID Application: Greg Gant (36SA478KNK)" $(APP_DIR)
 	@echo "App bundle created: $(APP_DIR)"
 
 # Legacy GUI target for compatibility
@@ -74,6 +76,19 @@ run-gui: run-app
 run-cli: cli
 	@$(BUILD_DIR)/$(CLI_TARGET) -h
 
+# Notarization (requires Apple ID app-specific password)
+notarize: app
+	@echo "Creating ZIP for notarization..."
+	@cd $(BUILD_DIR) && zip -r Extract-XISO.zip $(APP_BUNDLE)
+	@echo "Submitting for notarization..."
+	@echo "You'll need to run: xcrun notarytool submit $(BUILD_DIR)/Extract-XISO.zip --apple-id YOUR_APPLE_ID --password YOUR_APP_PASSWORD --team-id 36SA478KNK --wait"
+
+# Staple notarization ticket
+staple: 
+	@echo "Stapling notarization ticket..."
+	@xcrun stapler staple $(APP_DIR)
+	@xcrun stapler validate $(APP_DIR)
+
 help:
 	@echo "Extract-XISO Makefile"
 	@echo ""
@@ -87,4 +102,6 @@ help:
 	@echo "  run-app   - Build and open app bundle"
 	@echo "  run-gui   - Alias for run-app (compatibility)"
 	@echo "  run-cli   - Build and show CLI help"
+	@echo "  notarize  - Create ZIP and show notarization command"
+	@echo "  staple    - Staple notarization ticket to app"
 	@echo "  help      - Show this help message"
