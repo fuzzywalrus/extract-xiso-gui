@@ -8,7 +8,7 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-VERSION="2.7.1-gui"
+VERSION="0.1.3"
 RELEASE_DIR="release"
 DIST_DIR="$RELEASE_DIR/extract-xiso-$VERSION-macos"
 
@@ -130,6 +130,10 @@ echo "🗜️  Creating ZIP archive..."
 cd "$RELEASE_DIR"
 zip -r "extract-xiso-$VERSION-macos.zip" "extract-xiso-$VERSION-macos/"
 cd ..
+
+# Sign and notarize the app before packaging
+echo "🔐 Code signing and notarizing app..."
+./sign.sh
 
 # Create DMG (if hdiutil is available)
 if command -v hdiutil >/dev/null 2>&1; then

@@ -15,11 +15,11 @@ The Xbox ISO format is a proprietary disc image format used by the original Xbox
 
 ### Option 1: Download Release (Recommended)
 1. Download the latest release from [GitHub Releases](https://github.com/fuzzywalrus/extract-xiso-gui/releases)
-2. **Important**: On first launch, macOS may show "Apple cannot check it for malicious software"
+2. **Notarized builds** (v0.1.3+): Double-click `Extract-XISO.app` - no security warnings!
+3. **Older builds**: If you see "Apple cannot check it for malicious software":
    - Right-click the app and select "Open" 
    - Click "Open" in the security dialog
-   - Or go to System Preferences > Security & Privacy > General and click "Open Anyway"
-3. Double-click `Extract-XISO.app` to launch the GUI
+   - Or go to System Settings > Privacy & Security and click "Open Anyway"
 
 
 ### Option 2: Build from Source
@@ -140,6 +140,50 @@ make install
 # - CLI binary to /usr/local/bin/extract-xiso
 # - GUI app to /Applications/Extract-XISO.app
 ```
+
+### Code Signing and Notarization (For Developers)
+
+To create properly signed and notarized builds for distribution:
+
+#### 1. Setup Apple Developer Account
+- Enroll in the **Apple Developer Program** ($99/year)
+- Generate an **App-Specific Password** at [appleid.apple.com](https://appleid.apple.com)
+
+#### 2. Create `.env` File
+Create a `.env` file in the project root with your credentials:
+
+```bash
+# Apple Developer Account Configuration for Code Signing and Notarization
+# Do NOT commit this file to git - it contains sensitive credentials
+
+APPLE_ID="your-apple-id@example.com"
+APP_PASSWORD="your-app-specific-password"
+TEAM_ID="YOUR_TEAM_ID"
+SIGNING_IDENTITY="Developer ID Application: Your Name (TEAM_ID)"
+```
+
+**To find your Team ID:**
+```bash
+# List your signing identities
+security find-identity -v -p codesigning
+```
+
+#### 3. Sign and Notarize
+```bash
+# Build, sign, and notarize for distribution
+./sign.sh
+
+# Or use the GitHub release build (includes signing)
+./build-github-release.sh
+```
+
+**What this does:**
+- ✅ Signs both the app and embedded CLI with your Developer ID
+- ✅ Submits to Apple for notarization
+- ✅ Staples the notarization ticket to the app
+- ✅ Creates apps that run without security warnings
+
+**Note:** The `.env` file is automatically excluded from git commits for security.
 
 ## System Requirements
 

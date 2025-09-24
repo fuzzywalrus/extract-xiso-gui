@@ -1,1 +1,6 @@
 build/
+
+# Environment files with sensitive credentials
+.env
+.env.local
+.env.*.local
