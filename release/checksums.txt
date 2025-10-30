@@ -1,2 +1,1 @@
-0733e44dc96c2dff44e8fbd39aef3f891546374d0ff4fecfca1fec7e05520a69  extract-xiso-2.7.1-gui-macos.zip
-57897dc6bf2c70d4a789c38ca45b49798728688ea309c89c33f52cc7bca6306e  extract-xiso-2.7.1-gui-macos.dmg
+b17e7145cae33d5a510a2dfa6c2bfc2e287446b62e4208dff1bf848f42587bfd  extract-xiso-0.1.4-macos.zip

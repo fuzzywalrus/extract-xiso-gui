@@ -13,35 +13,74 @@
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     [self setupMenu];
     [self setupUI];
+
+    // Register default preferences
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDictionary *appDefaults = @{@"CheckForUpdatesOnLaunch": @YES};
+    [defaults registerDefaults:appDefaults];
+
+    // Check for updates on launch if preference is enabled
+    // Use a 1-second delay to ensure the app is fully initialized and run loop is running
+    BOOL checkOnLaunch = [defaults boolForKey:@"CheckForUpdatesOnLaunch"];
+    if (checkOnLaunch) {
+        [self performSelector:@selector(performAutomaticUpdateCheck) withObject:nil afterDelay:1.0];
+    }
+}
+
+- (void)performAutomaticUpdateCheck {
+    [self performUpdateCheck:NO]; // NO = automatic/silent mode
 }
 
 - (void)setupMenu {
     // Create the main menu bar
     NSMenu *mainMenu = [[NSMenu alloc] init];
-    
+
     // Create the application menu (first menu item)
     NSMenu *appMenu = [[NSMenu alloc] init];
     NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
     [appMenuItem setSubmenu:appMenu];
     [mainMenu addItem:appMenuItem];
-    
+
     // Add "About Extract-XISO" menu item
-    NSMenuItem *aboutItem = [[NSMenuItem alloc] initWithTitle:@"About Extract-XISO" 
-                                                      action:@selector(showAbout:) 
+    NSMenuItem *aboutItem = [[NSMenuItem alloc] initWithTitle:@"About Extract-XISO"
+                                                      action:@selector(showAbout:)
                                                keyEquivalent:@""];
     [aboutItem setTarget:self];
     [appMenu addItem:aboutItem];
-    
+
     // Add separator
     [appMenu addItem:[NSMenuItem separatorItem]];
-    
+
+    // Add "Preferences..." menu item with Command+,
+    NSMenuItem *preferencesItem = [[NSMenuItem alloc] initWithTitle:@"Preferences..."
+                                                            action:@selector(showPreferences:)
+                                                     keyEquivalent:@","];
+    [preferencesItem setTarget:self];
+    [appMenu addItem:preferencesItem];
+
+    // Add separator
+    [appMenu addItem:[NSMenuItem separatorItem]];
+
     // Add "Quit Extract-XISO" menu item with Command+Q
-    NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit Extract-XISO" 
-                                                     action:@selector(terminate:) 
+    NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit Extract-XISO"
+                                                     action:@selector(terminate:)
                                               keyEquivalent:@"q"];
     [quitItem setTarget:[NSApplication sharedApplication]];
     [appMenu addItem:quitItem];
-    
+
+    // Create Help menu
+    NSMenu *helpMenu = [[NSMenu alloc] initWithTitle:@"Help"];
+    NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
+    [helpMenuItem setSubmenu:helpMenu];
+    [mainMenu addItem:helpMenuItem];
+
+    // Add "Check for Updates..." menu item
+    NSMenuItem *updateItem = [[NSMenuItem alloc] initWithTitle:@"Check for Updates..."
+                                                       action:@selector(checkForUpdates:)
+                                                keyEquivalent:@""];
+    [updateItem setTarget:self];
+    [helpMenu addItem:updateItem];
+
     // Set the main menu
     [[NSApplication sharedApplication] setMainMenu:mainMenu];
 }
@@ -49,10 +88,65 @@
 - (IBAction)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
     [alert setMessageText:@"Extract-XISO GUI"];
-    [alert setInformativeText:@"Extract-XISO v2.7.1\n\nA tool for creating, extracting, and listing Xbox ISO files.\n\nOriginal CLI by XboxDev organization\nGUI version by Greg Gant, greggant.com"];
     [alert addButtonWithTitle:@"OK"];
+
+    // Create an accessory view with clickable link
+    NSTextView *textView = [[NSTextView alloc] initWithFrame:NSMakeRect(0, 0, 300, 100)];
+    [textView setEditable:NO];
+    [textView setSelectable:YES];
+    [textView setDrawsBackground:NO];
+
+    // Create attributed string with clickable link
+    NSMutableAttributedString *aboutText = [[NSMutableAttributedString alloc] initWithString:@"Based on Extract-XISO v2.7.1\n\nA tool for creating, extracting, and listing Xbox ISO files.\n\nOriginal CLI by XboxDev organization\nGUI version by Greg Gant, "];
+
+    // Add the clickable link
+    NSAttributedString *link = [[NSAttributedString alloc] initWithString:@"greggant.com"
+        attributes:@{
+            NSLinkAttributeName: [NSURL URLWithString:@"https://greggant.com"],
+            NSForegroundColorAttributeName: [NSColor blueColor],
+            NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle)
+        }];
+    [aboutText appendAttributedString:link];
+
+    [[textView textStorage] setAttributedString:aboutText];
+    [textView setAlignment:NSTextAlignmentCenter range:NSMakeRange(0, [[textView string] length])];
+
+    [alert setAccessoryView:textView];
     [alert runModal];
 }
+
+- (IBAction)showPreferences:(id)sender {
+    // Create a modal alert-style dialog (simpler and crash-free)
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"Preferences"];
+    [alert setInformativeText:@""];
+    [alert addButtonWithTitle:@"OK"];
+
+    // Create accessory view for the checkbox
+    NSView *accessoryView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 300, 40)];
+
+    // Check for updates on launch checkbox
+    NSButton *checkOnLaunchBox = [[NSButton alloc] initWithFrame:NSMakeRect(0, 10, 300, 20)];
+    [checkOnLaunchBox setButtonType:NSButtonTypeSwitch];
+    [checkOnLaunchBox setTitle:@"Check for updates on launch"];
+
+    // Load current preference
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    BOOL checkOnLaunch = [defaults boolForKey:@"CheckForUpdatesOnLaunch"];
+    [checkOnLaunchBox setState:checkOnLaunch ? NSControlStateValueOn : NSControlStateValueOff];
+
+    [accessoryView addSubview:checkOnLaunchBox];
+    [alert setAccessoryView:accessoryView];
+
+    // Show modal dialog
+    [alert runModal];
+
+    // Save preference after dialog closes
+    BOOL isEnabled = ([checkOnLaunchBox state] == NSControlStateValueOn);
+    [defaults setBool:isEnabled forKey:@"CheckForUpdatesOnLaunch"];
+    [defaults synchronize];
+}
+
 
 - (void)setupUI {
     // Create main window
@@ -72,7 +166,7 @@
     
     // Title label
     NSTextField *titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 450, 460, 30)];
-    [titleLabel setStringValue:@"Extract-XISO v2.7.1 - GUI Wrapper"];
+    [titleLabel setStringValue:@"Based on Extract-XISO v2.7.1 - GUI Wrapper"];
     [titleLabel setEditable:NO];
     [titleLabel setBordered:NO];
     [titleLabel setBackgroundColor:[NSColor clearColor]];
@@ -539,6 +633,113 @@
     });
 }
 
+- (IBAction)checkForUpdates:(id)sender {
+    // Manual check - always show results
+    [self performUpdateCheck:YES];
+}
+
+- (void)performUpdateCheck:(BOOL)isManualCheck {
+    // Get current version from Info.plist
+    NSString *currentVersion = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+
+    // Create URL for GitHub API
+    NSURL *url = [NSURL URLWithString:@"https://api.github.com/repos/fuzzywalrus/extract-xiso-gui/releases/latest"];
+    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+
+    // Create a session and data task
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData *data, __unused NSURLResponse *response, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (error) {
+                // Only show error for manual checks
+                if (isManualCheck) {
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    [alert setMessageText:@"Update Check Failed"];
+                    [alert setInformativeText:[NSString stringWithFormat:@"Could not check for updates: %@", error.localizedDescription]];
+                    [alert addButtonWithTitle:@"OK"];
+                    [alert runModal];
+                }
+                return;
+            }
+
+            // Parse JSON response
+            NSError *jsonError;
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+
+            if (jsonError || !json) {
+                // Only show error for manual checks
+                if (isManualCheck) {
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    [alert setMessageText:@"Update Check Failed"];
+                    [alert setInformativeText:@"Could not parse update information"];
+                    [alert addButtonWithTitle:@"OK"];
+                    [alert runModal];
+                }
+                return;
+            }
+
+            NSString *latestVersion = json[@"tag_name"];
+            NSString *releaseURL = json[@"html_url"];
+
+            // Remove 'v' prefix if present
+            if ([latestVersion hasPrefix:@"v"]) {
+                latestVersion = [latestVersion substringFromIndex:1];
+            }
+
+            // Compare versions
+            NSComparisonResult comparison = [self compareVersion:currentVersion toVersion:latestVersion];
+
+            NSAlert *alert = [[NSAlert alloc] init];
+            BOOL shouldShowAlert = isManualCheck; // Always show for manual checks
+
+            if (comparison == NSOrderedAscending) {
+                // Current version is older - ALWAYS show this
+                shouldShowAlert = YES;
+                [alert setMessageText:@"Update Available"];
+                [alert setInformativeText:[NSString stringWithFormat:@"A new version (v%@) is available!\n\nYou are currently running v%@.\n\nVisit: %@", latestVersion, currentVersion, releaseURL]];
+                [alert addButtonWithTitle:@"OK"];
+            } else if (comparison == NSOrderedSame) {
+                // Same version - only show for manual checks
+                [alert setMessageText:@"Up to Date"];
+                [alert setInformativeText:[NSString stringWithFormat:@"You are running the latest version (v%@).", currentVersion]];
+                [alert addButtonWithTitle:@"OK"];
+            } else {
+                // Current version is newer (development build) - only show for manual checks
+                [alert setMessageText:@"Development Version"];
+                [alert setInformativeText:[NSString stringWithFormat:@"You are running v%@, which is newer than the latest release (v%@).", currentVersion, latestVersion]];
+                [alert addButtonWithTitle:@"OK"];
+            }
+
+            if (shouldShowAlert) {
+                [alert runModal];
+            }
+        });
+    }];
+
+    [task resume];
+}
+
+- (NSComparisonResult)compareVersion:(NSString *)version1 toVersion:(NSString *)version2 {
+    // Split versions by dots
+    NSArray *v1Components = [version1 componentsSeparatedByString:@"."];
+    NSArray *v2Components = [version2 componentsSeparatedByString:@"."];
+
+    NSUInteger maxLength = MAX(v1Components.count, v2Components.count);
+
+    for (NSUInteger i = 0; i < maxLength; i++) {
+        NSInteger v1Value = (i < v1Components.count) ? [v1Components[i] integerValue] : 0;
+        NSInteger v2Value = (i < v2Components.count) ? [v2Components[i] integerValue] : 0;
+
+        if (v1Value < v2Value) {
+            return NSOrderedAscending;  // version1 is older
+        } else if (v1Value > v2Value) {
+            return NSOrderedDescending; // version1 is newer
+        }
+    }
+
+    return NSOrderedSame; // versions are equal
+}
+
 - (void)showAlert:(NSString *)message {
     NSAlert *alert = [[NSAlert alloc] init];
     [alert setMessageText:@"Error"];
@@ -553,7 +754,7 @@
 
 @end
 
-int main(int argc, const char * argv[]) {
+int main(__unused int argc, __unused const char * argv[]) {
     @autoreleasepool {
         NSApplication *app = [NSApplication sharedApplication];
         ExtractXISOGUI *delegate = [[ExtractXISOGUI alloc] init];

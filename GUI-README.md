@@ -5,15 +5,19 @@ A simple graphical user interface wrapper for the extract-xiso command-line tool
 ## Features
 
 - **Graphical Interface**: Easy-to-use macOS native Cocoa interface
-- **All Modes Supported**: 
+- **All Modes Supported**:
   - Extract XISO files (default)
-  - Create XISO from directories  
+  - Create XISO from directories
   - List XISO contents
   - Rewrite/optimize XISO files
 - **File Browser Integration**: Browse for files and directories
 - **Progress Feedback**: Visual progress indicator and status updates
 - **Command Output**: View real-time command output
 - **Options Support**: Quiet mode and skip system update options
+- **Automatic Updates**: Built-in update checker notifies you of new releases
+  - Checks for updates automatically on launch (configurable)
+  - Manual check available via Help menu
+  - Silent background checks - only alerts when updates are available
 
 ## Building
 
@@ -64,6 +68,28 @@ open build/Extract-XISO.app
 5. **Configure Options** (optional): Enable quiet mode or skip system updates
 6. **Execute**: Click the Execute button to run the operation
 7. **View Results**: Monitor progress and view command output
+
+## Preferences
+
+Access preferences via **Extract-XISO > Preferences...** (⌘,)
+
+- **Check for updates on launch**: Automatically checks for new releases when the app starts
+  - Enabled by default
+  - Only shows alerts if an update is available
+  - Runs silently in the background after a 1-second delay
+
+## Menu Features
+
+### Help Menu
+- **Check for Updates...**: Manually check for new releases
+  - Always shows results (update available, up-to-date, or development version)
+  - Connects to GitHub to check latest release version
+  - Provides download link when updates are available
+
+### Application Menu
+- **About Extract-XISO**: View version and credits
+- **Preferences...**: Configure application settings
+- **Quit Extract-XISO** (⌘Q): Exit the application
 
 ## GUI Layout
 
@@ -116,3 +142,6 @@ After installation, you can find "Extract-XISO" in your Applications folder!
 - Uses NSTask to execute the CLI binary
 - Runs command execution on background thread to keep UI responsive
 - Automatically detects CLI binary location (bundled or build directory)
+- Update checking uses GitHub API to fetch latest release information
+- Version comparison uses semantic versioning for accurate update detection
+- Preferences stored in NSUserDefaults (standard macOS preference system)

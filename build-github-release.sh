@@ -8,7 +8,7 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-VERSION="0.1.3"
+VERSION="0.1.4"
 RELEASE_DIR="release"
 DIST_DIR="$RELEASE_DIR/extract-xiso-$VERSION-macos"
 

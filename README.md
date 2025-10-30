@@ -10,6 +10,7 @@ The Xbox ISO format is a proprietary disc image format used by the original Xbox
 - **Visual Feedback**: Progress bars and real-time status updates
 - **All CLI Features**: Full support for Extract, Create, List, and Rewrite modes
 - **Zero Setup**: Works immediately after download - no installation required!
+- **minor CLI improvements**: Fixed warnings and improved type safety (100% compatible)
 
 ##  Quick Start
 
@@ -200,12 +201,21 @@ security find-identity -v -p codesigning
 ## Technical Details
 
 - **GUI Framework**: Objective-C with Cocoa
-- **CLI Core**: Original C implementation (v2.7.1)
+- **CLI Core**: Based on extract-xiso v2.7.1 with minor improvements
 - **Architecture**: GUI wrapper executes bundled CLI binary
 - **Threading**: Background execution keeps UI responsive
 - **Bundle Structure**: Complete `.app` with embedded CLI
 - **Dependencies**: Only system libraries - fully portable
 - **Binary Location**: `Contents/Resources/extract-xiso` (auto-detected)
+
+### CLI Improvements
+
+This wrapper includes minor improvements to the extract-xiso v2.7.1 CLI:
+- Fixed compiler warnings for cleaner builds
+- Fixed unsequenced modification warning (potential undefined behavior)
+- Fixed nested comment formatting
+- Improved type safety in pointer casts
+- All functionality remains 100% compatible with original extract-xiso
 
 ## Contributing
 
