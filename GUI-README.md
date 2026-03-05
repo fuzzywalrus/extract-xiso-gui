@@ -22,7 +22,7 @@ A simple graphical user interface wrapper for the extract-xiso command-line tool
 ## Building
 
 ### Requirements
-- macOS with Xcode command line tools
+- macOS 11.0 or later with Xcode command line tools
 - cmake
 - make
 
@@ -133,7 +133,7 @@ After installation, you can find "Extract-XISO" in your Applications folder!
 ## Troubleshooting
 
 - **Command fails**: Check that the input file/directory exists and is readable
-- **GUI doesn't launch**: Ensure you have built the application first with `make gui`
+- **GUI doesn't launch**: Ensure you have built the application first with `make app` (or `make gui`)
 - **Build errors**: Make sure you have Xcode command line tools installed: `xcode-select --install`
 
 ## Technical Notes

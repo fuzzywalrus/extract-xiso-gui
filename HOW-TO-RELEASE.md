@@ -3,15 +3,24 @@
 ## 📋 Steps to Release
 
 ### 1. Build the Release
+
+**For signed/notarized releases** (recommended for distribution):
 ```bash
-# Run the automated release build script
+# Requires .env with Apple Developer credentials (see README)
 ./build-release.sh
 ```
 
-This creates:
-- `release/extract-xiso-2.7.1-gui-macos.zip` - ZIP archive
-- `release/extract-xiso-2.7.1-gui-macos.dmg` - DMG disk image  
+**For unsigned builds** (e.g. quick test packages):
+```bash
+./build-github-release.sh
+```
+
+`build-release.sh` creates:
+- `release/extract-xiso-<VERSION>-macos.zip` - ZIP archive (signed app inside)
+- `release/extract-xiso-<VERSION>-macos.dmg` - DMG disk image
 - `release/checksums.txt` - SHA-256 checksums
+
+Set `VERSION` in the script to match `Info.plist` (CFBundleShortVersionString); current is **0.1.4**.
 
 ### 2. Create GitHub Release
 
@@ -21,49 +30,17 @@ This creates:
    - Click "Create a new release"
 
 2. **Set Release Details**
-   - **Tag version**: `v2.7.1-gui` 
-   - **Release title**: `🎉 Extract-XISO GUI v2.7.1 - First GUI Release!`
-   - **Target**: Choose your branch (usually `main` or `master`)
+   - **Tag version**: `v0.1.4` (match the app version in Info.plist)
+   - **Release title**: e.g. `Extract-XISO GUI v0.1.4`
+   - **Target**: Choose your branch (e.g. `main` or `master`)
 
 3. **Add Release Description**
-   Copy the content from `GITHUB-RELEASE.md` or use this:
-
-   ```markdown
-   # 🎉 Extract-XISO GUI v2.7.1 - First GUI Release!
-
-   We're excited to announce the **first GUI release** of Extract-XISO! This release adds a beautiful, native macOS application while maintaining all the power of the original command-line tool.
-
-   ## ✨ What's New
-
-   ### 🖥️ **Native macOS GUI Application**
-   - **Double-clickable app** - Just double-click to launch!
-   - **Native Cocoa interface** - Feels right at home on macOS
-   - **All CLI modes supported**: Extract, Create, List, Rewrite
-   - **File browser integration** - Easy point-and-click file selection
-   - **Progress feedback** - Visual progress bars and status updates
-   - **Real-time output** - See command results as they happen
-
-   ## 🚀 **Quick Start**
-   1. Download the ZIP or DMG below
-   2. Double-click `Extract-XISO.app` to launch
-   3. Or run `./extract-xiso -h` for CLI help
-
-   ## 💻 **System Requirements**
-   - macOS 10.10 (Yosemite) or later
-   - Intel or Apple Silicon Mac
-
-   ## 📦 **Downloads**
-   - **ZIP Archive**: Smaller download, extract and use
-   - **DMG Image**: Native macOS installer format
-   - **Checksums**: For download verification
-
-   Enjoy the new GUI! 🎊
-   ```
+   Copy the content from `GITHUB-RELEASE.md` (update the version number to match the release).
 
 4. **Upload Release Assets**
    Drag and drop these files from the `release/` directory:
-   - `extract-xiso-2.7.1-gui-macos.zip`
-   - `extract-xiso-2.7.1-gui-macos.dmg`  
+   - `extract-xiso-<VERSION>-macos.zip`
+   - `extract-xiso-<VERSION>-macos.dmg` (if built)
    - `checksums.txt`
 
 5. **Release Options**
@@ -104,9 +81,9 @@ Before creating the release, ensure:
 ## 🔄 For Future Releases
 
 1. **Update version numbers** in:
-   - `build-release.sh` (VERSION variable)
-   - `Info.plist` (CFBundleShortVersionString)
-   - Release documentation
+   - `build-release.sh` and `build-github-release.sh` (VERSION variable)
+   - `Info.plist` (CFBundleShortVersionString and CFBundleVersion)
+   - `GITHUB-RELEASE.md` and other release documentation
 
 2. **Update changelog/release notes** with:
    - New features
@@ -114,9 +91,9 @@ Before creating the release, ensure:
    - Breaking changes
    - System requirement changes
 
-3. **Test on different macOS versions** if possible
+3. **Test on different macOS versions** if possible (minimum is macOS 11.0)
 
-4. **Consider code signing** for future releases to avoid security warnings
+4. **Use `./sign.sh`** (with `.env` configured) when building via `build-release.sh` so the packaged app is signed and notarized
 
 ---
 

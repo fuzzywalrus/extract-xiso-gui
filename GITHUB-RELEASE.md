@@ -1,6 +1,6 @@
-# 🎉 Extract-XISO GUI v2.7.1 - First GUI Release!
+# Extract-XISO GUI v0.1.4
 
-We're excited to announce the **first GUI release** of Extract-XISO! This release adds a beautiful, native macOS application while maintaining all the power of the original command-line tool.
+Native macOS GUI for the extract-xiso command-line tool. This release provides a double-clickable app while keeping full compatibility with the original CLI (extract-xiso v2.7.1).
 
 ## ✨ What's New
 
@@ -37,19 +37,18 @@ We're excited to announce the **first GUI release** of Extract-XISO! This releas
 4. Use `extract-xiso` command from anywhere in Terminal
 
 ## 💻 **System Requirements**
-- macOS 10.10 (Yosemite) or later
-- Intel or Apple Silicon Mac
+- macOS 11.0 (Big Sur) or later
+- Intel or Apple Silicon (universal binary)
 - ~1MB disk space
 
 ## 📦 **Downloads**
 
 Choose your preferred format:
 
-- **ZIP Archive**: `extract-xiso-2.7.1-gui-macos.zip` (57KB)
-  - Smaller download
+- **ZIP Archive**: `extract-xiso-0.1.4-macos.zip`
   - Extract and use immediately
   
-- **DMG Image**: `extract-xiso-2.7.1-gui-macos.dmg` (76KB)  
+- **DMG Image**: `extract-xiso-0.1.4-macos.dmg` (when built via `build-release.sh`)
   - Native macOS installer format
   - Mount and drag to Applications
 
@@ -104,6 +103,5 @@ Found a bug or want to contribute? Please:
 ---
 
 **Full Changelog**: [Link to compare view]
-**Previous Release**: v2.7.1 (CLI only)
 
 Enjoy the new GUI! 🎊

@@ -12,11 +12,11 @@ The Xbox ISO format is a proprietary disc image format used by the original Xbox
 - **Zero Setup**: Works immediately after download - no installation required!
 - **minor CLI improvements**: Fixed warnings and improved type safety (100% compatible)
 
-##  Quick Start
+## Quick Start
 
 ### Option 1: Download Release (Recommended)
 1. Download the latest release from [GitHub Releases](https://github.com/fuzzywalrus/extract-xiso-gui/releases)
-2. **Notarized builds** (v0.1.3+): Double-click `Extract-XISO.app` - no security warnings!
+2. **Notarized builds** (v0.1.3 and later): Double-click `Extract-XISO.app` — no security warnings!
 3. **Older builds**: If you see "Apple cannot check it for malicious software":
    - Right-click the app and select "Open" 
    - Click "Open" in the security dialog
@@ -61,7 +61,7 @@ The GUI provides an intuitive interface for all extract-xiso operations:
 
 ## Command Line Usage
 
-The following is documenation from the CLI version supports all original functionality:
+The following is documentation for the CLI; the GUI supports all original functionality:
 
 ### Create XISO
 ```bash
@@ -111,7 +111,7 @@ The following is documenation from the CLI version supports all original functio
 -v                  Show version info
 ```
 
-##  Building
+## Building
 
 ### Requirements
 - **macOS**: 11.0+ with Xcode command line tools
@@ -225,7 +225,7 @@ This is a GUI wrapper for the original [extract-xiso](https://github.com/XboxDev
 - **GUI Issues**: Report here for interface-related problems
 - **Feature Requests**: Welcome for GUI improvements
 
-##  License
+## License
 
 This GUI wrapper uses the same license as the original extract-xiso project. See `LICENSE.TXT` for details.
 

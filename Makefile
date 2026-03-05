@@ -45,7 +45,12 @@ app: cli
 	@echo "Copying launch script..."
 	@cp launch-extract-xiso.sh $(BUILD_DIR)/
 	@echo "Code signing app bundle..."
-	@codesign --force --deep --options runtime --sign "Developer ID Application: Greg Gant (36SA478KNK)" $(APP_DIR)
+	@if [ -f .env ]; then \
+		. ./.env && codesign --force --deep --options runtime --sign "$$SIGNING_IDENTITY" $(APP_DIR); \
+	else \
+		echo "Warning: .env not found, using ad-hoc signing"; \
+		codesign --force --deep --sign - $(APP_DIR); \
+	fi
 	@echo "App bundle created: $(APP_DIR)"
 
 # Legacy GUI target for compatibility

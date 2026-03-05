@@ -339,12 +339,6 @@
 }
 
 - (IBAction)executeCommand:(id)sender {
-    NSLog(@"Execute command clicked!");
-    // Write debug info to file for monitoring
-    NSString *debugPath = [@"~/Desktop/extract-xiso-debug.log" stringByExpandingTildeInPath];
-    NSString *debugMsg = [NSString stringWithFormat:@"[%@] Execute command clicked!\n", [NSDate date]];
-    [debugMsg writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    
     [self.statusLabel setStringValue:@"Executing..."];
     [self.progressIndicator setHidden:NO];
     [self.progressIndicator startAnimation:nil];
@@ -382,34 +376,9 @@
         }
     }
     
-    // Add more debug info about found UI elements
-    NSString *uiDebugInfo = [NSString stringWithFormat:@"[%@] UI Elements Found - Mode popup: %@, File field: %@, Output field: %@\n", 
-                            [NSDate date], modePopup ? @"YES" : @"NO", fileField ? @"YES" : @"NO", outputField ? @"YES" : @"NO"];
-    NSString *existingContent = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-    NSString *newContent = [existingContent stringByAppendingString:uiDebugInfo];
-    [newContent writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    
     NSString *selectedFile = [fileField stringValue];
     NSString *outputDir = [outputField stringValue];
     NSInteger selectedMode = [modePopup indexOfSelectedItem];
-    
-    // Debug output field specifically
-    NSString *outputDebug = [NSString stringWithFormat:@"[%@] Output field debug - Found: %@, Value: '%@', Length: %lu\n", 
-                            [NSDate date], outputField ? @"YES" : @"NO", outputDir ?: @"(nil)", (unsigned long)[outputDir length]];
-    NSString *existingContent3 = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-    NSString *newContent3 = [existingContent3 stringByAppendingString:outputDebug];
-    [newContent3 writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    
-    NSLog(@"Selected file: '%@'", selectedFile ?: @"(nil)");
-    NSLog(@"Output dir: '%@'", outputDir ?: @"(empty)");
-    NSLog(@"Selected mode: %ld", (long)selectedMode);
-    
-    // Debug to file
-    NSString *debugInfo = [NSString stringWithFormat:@"[%@] UI Values - File: '%@', Output: '%@', Mode: %ld\n", 
-                          [NSDate date], selectedFile ?: @"(nil)", outputDir ?: @"(empty)", (long)selectedMode];
-    NSString *existingContent2 = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-    NSString *newContent2 = [existingContent2 stringByAppendingString:debugInfo];
-    [newContent2 writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
     
     if (!selectedFile || [selectedFile length] == 0) {
         NSLog(@"No file selected, showing alert");
@@ -443,9 +412,24 @@
             [arguments addObject:extractPath];
             break;
         }
-        case 1: // Create
+        case 1: { // Create
             [arguments addObject:@"-c"];
+            // extract-xiso -c <dir> [name] — pass output dir + filename as the [name] param
+            // The input file (selectedFile) is actually a directory for create mode
+            // We'll add selectedFile here, then the output ISO path
+            // Note: arguments are built as: -c <dir> [name], so we add dir then output path
+            NSString *dirName = [[selectedFile lastPathComponent] stringByDeletingPathExtension];
+            if ([dirName length] == 0) {
+                dirName = [selectedFile lastPathComponent];
+            }
+            NSString *outputIsoPath = [outputDir stringByAppendingPathComponent:
+                                       [dirName stringByAppendingString:@".iso"]];
+            [arguments addObject:selectedFile];
+            [arguments addObject:outputIsoPath];
+            // Skip adding selectedFile again at the end
+            selectedFile = nil;
             break;
+        }
         case 2: // List
             [arguments addObject:@"-l"];
             break;
@@ -466,8 +450,10 @@
         [arguments addObject:@"-s"];
     }
     
-    [arguments addObject:selectedFile];
-    
+    if (selectedFile) {
+        [arguments addObject:selectedFile];
+    }
+
     NSLog(@"Final arguments array: %@", arguments);
     
     // Check if we should auto-repackage after extraction
@@ -525,9 +511,12 @@
         [task setLaunchPath:executablePath];
         [task setArguments:arguments];
         
-        // Set working directory to user's Desktop for file operations
-        NSString *desktopPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Desktop"];
-        [task setCurrentDirectoryPath:desktopPath];
+        // Set working directory to output directory (or home as fallback)
+        if (outputDir && [outputDir length] > 0) {
+            [task setCurrentDirectoryPath:outputDir];
+        } else {
+            [task setCurrentDirectoryPath:NSHomeDirectory()];
+        }
         
         NSPipe *pipe = [NSPipe pipe];
         [task setStandardOutput:pipe];
@@ -548,13 +537,6 @@
         int finalStatus = status;
         
         if (shouldRepackage && status == 0) {
-            // Debug repackaging attempt
-            NSString *debugPath = [@"~/Desktop/extract-xiso-debug.log" stringByExpandingTildeInPath];
-            NSString *repackageDebug = [NSString stringWithFormat:@"[%@] Starting repackaging - shouldRepackage: YES, status: %d\n", [NSDate date], status];
-            NSString *existingDebugContent = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-            NSString *newDebugContent = [existingDebugContent stringByAppendingString:repackageDebug];
-            [newDebugContent writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            
             // Determine the extracted directory path (output dir is now required)
             NSString *fileName = [[filePath lastPathComponent] stringByDeletingPathExtension];
             NSString *extractedDirPath = [outputDir stringByAppendingPathComponent:fileName];
@@ -563,22 +545,8 @@
             NSString *outputIsoName = [NSString stringWithFormat:@"%@_repackaged.iso", fileName];
             NSString *outputIsoPath = [outputDir stringByAppendingPathComponent:outputIsoName];
             
-            // Debug directory path
-            NSString *pathDebug = [NSString stringWithFormat:@"[%@] Calculated extracted path: '%@', exists: %@\n", 
-                                 [NSDate date], extractedDirPath, [fileManager fileExistsAtPath:extractedDirPath] ? @"YES" : @"NO"];
-            NSString *existingDebugContent2 = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-            NSString *newDebugContent2 = [existingDebugContent2 stringByAppendingString:pathDebug];
-            [newDebugContent2 writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            
             // Run the create command on the extracted directory
             if ([fileManager fileExistsAtPath:extractedDirPath]) {
-                // Debug repackaging execution
-                NSString *execDebug = [NSString stringWithFormat:@"[%@] Executing repackage: %@ -c '%@' '%@'\n", 
-                                     [NSDate date], executablePath, extractedDirPath, outputIsoPath];
-                NSString *existingDebugContent3 = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-                NSString *newDebugContent3 = [existingDebugContent3 stringByAppendingString:execDebug];
-                [newDebugContent3 writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-                
                 NSTask *repackageTask = [[NSTask alloc] init];
                 [repackageTask setLaunchPath:executablePath];
                 [repackageTask setArguments:@[@"-c", extractedDirPath, outputIsoPath]];
@@ -619,16 +587,7 @@
             }
             
             // Update output view
-            NSLog(@"Command output: %@", finalOutput ?: @"No output");
             [self.outputView setString:finalOutput ?: @"No output"];
-            
-            // Debug output update to file
-            NSString *debugPath = [@"~/Desktop/extract-xiso-debug.log" stringByExpandingTildeInPath];
-            NSString *outputDebugInfo = [NSString stringWithFormat:@"[%@] Command completed with status %d. Output length: %lu. Setting output view.\n", 
-                                       [NSDate date], finalStatus, (unsigned long)[(finalOutput ?: @"No output") length]];
-            NSString *existingContent = [NSString stringWithContentsOfFile:debugPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
-            NSString *newContent = [existingContent stringByAppendingString:outputDebugInfo];
-            [newContent writeToFile:debugPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
         });
     });
 }

@@ -8,7 +8,7 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-VERSION="0.1.3"
+VERSION="0.1.4"
 RELEASE_DIR="release"
 DIST_DIR="$RELEASE_DIR/extract-xiso-$VERSION-macos"
 
@@ -41,13 +41,13 @@ fi
 
 echo "✅ Build successful!"
 
-# Copy binaries to release directory
+# Sign and notarize the app before packaging (so ZIP/DMG contain signed app)
+echo "🔐 Code signing and notarizing app..."
+./sign.sh
+
+# Copy binaries to release directory (signed app)
 echo "📦 Packaging release files..."
-
-# Copy app bundle
 cp -R "build/Extract-XISO.app" "$DIST_DIR/"
-
-# Copy CLI binary
 cp "build/extract-xiso" "$DIST_DIR/"
 
 # Copy documentation
@@ -56,40 +56,37 @@ cp "GUI-README.md" "$DIST_DIR/README-GUI.md"
 cp "LICENSE.TXT" "$DIST_DIR/"
 
 # Create release notes
-cat > "$DIST_DIR/RELEASE-NOTES.md" << 'EOF'
-# Extract-XISO GUI v2.7.1
+cat > "$DIST_DIR/RELEASE-NOTES.md" << EOF
+# Extract-XISO GUI v$VERSION
 
 ## What's New
 
-This is the first GUI release of Extract-XISO! 🎉
+Native macOS GUI for extract-xiso with full CLI compatibility.
 
-### 🖥️ **New: macOS GUI Application**
-- **Double-clickable app**: Just double-click `Extract-XISO.app` to launch
-- **Native macOS interface**: Built with Cocoa frameworks
-- **All CLI features**: Extract, Create, List, and Rewrite modes
-- **File browser integration**: Easy file and directory selection
-- **Progress feedback**: Visual progress indicators and status updates
-- **Real-time output**: View command results as they happen
+### 🖥️ **macOS GUI Application**
+- **Double-clickable app**: Just double-click \`Extract-XISO.app\` to launch
+- **Native Cocoa interface**: Extract, Create, List, and Rewrite modes
+- **File browser integration**, **progress feedback**, **real-time output**
 
 ### 📦 **What's Included**
-- `Extract-XISO.app` - Double-clickable GUI application
-- `extract-xiso` - Original command-line tool (v2.7.1)
-- Documentation and license files
+- \`Extract-XISO.app\` - GUI application (signed/notarized in this build)
+- \`extract-xiso\` - Command-line tool (v2.7.1 compatible)
+- Documentation and license
 
 ### 🚀 **Quick Start**
-1. **GUI**: Double-click `Extract-XISO.app`
-2. **CLI**: Run `./extract-xiso -h` for help
+1. **GUI**: Double-click \`Extract-XISO.app\`
+2. **CLI**: Run \`./extract-xiso -h\` for help
 
 ### 💻 **System Requirements**
-- macOS 10.10 or later
-- 64-bit Intel or Apple Silicon Mac
+- macOS 11.0 (Big Sur) or later
+- Intel or Apple Silicon (universal binary)
 
-### 🔧 **Installation Options**
-- **Portable**: Use directly from this folder
-- **System-wide**: Copy `Extract-XISO.app` to `/Applications/`
-- **CLI access**: Copy `extract-xiso` to `/usr/local/bin/`
+### 🔧 **Installation**
+- **Portable**: Use from this folder
+- **System-wide**: Copy \`Extract-XISO.app\` to \`/Applications/\`, \`extract-xiso\` to \`/usr/local/bin/\`
+- Or run \`./install.sh\` for both
 
-Enjoy the new GUI! 🎊
+Enjoy! 🎊
 EOF
 
 # Create installation script
@@ -131,10 +128,6 @@ cd "$RELEASE_DIR"
 zip -r "extract-xiso-$VERSION-macos.zip" "extract-xiso-$VERSION-macos/"
 cd ..
 
-# Sign and notarize the app before packaging
-echo "🔐 Code signing and notarizing app..."
-./sign.sh
-
 # Create DMG (if hdiutil is available)
 if command -v hdiutil >/dev/null 2>&1; then
     echo "💿 Creating DMG image..."
@@ -147,9 +140,9 @@ fi
 echo "🔐 Generating checksums..."
 cd "$RELEASE_DIR"
 shasum -a 256 *.zip > checksums.txt
-if [ -f *.dmg ]; then
-    shasum -a 256 *.dmg >> checksums.txt
-fi
+for f in *.dmg; do
+    [ -f "$f" ] && shasum -a 256 "$f" >> checksums.txt
+done
 cd ..
 
 echo ""
@@ -171,4 +164,3 @@ echo "   - checksums.txt"
 echo ""
 echo "🚀 You can test the release by running:"
 echo "   cd $DIST_DIR && open Extract-XISO.app"
-EOF

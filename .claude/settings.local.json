@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make all)",
+      "Bash(test -f /Users/greggant/Development/extract-xiso-gui/.env)",
+      "Bash(security find-identity -v -p codesigning)",
+      "Bash(make clean)",
+      "Bash(./build/extract-xiso -h)"
+    ]
+  }
+}
