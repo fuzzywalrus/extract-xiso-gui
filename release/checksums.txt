@@ -1,1 +1,2 @@
-b17e7145cae33d5a510a2dfa6c2bfc2e287446b62e4208dff1bf848f42587bfd  extract-xiso-0.1.4-macos.zip
+885784911d7bee25c1827b0b94470ffb21baae989b01b0dce28cbf105992729a  extract-xiso-0.1.4-macos.zip
+c001a280c1726839ea986ed65f8fc71406c52a02715143fd7a88a0164b99c798  extract-xiso-0.1.4-macos.dmg
