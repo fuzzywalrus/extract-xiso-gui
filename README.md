@@ -1,5 +1,7 @@
 # Extract-XISO GUI for macOS
 
+![Extract-XISO GUI running on macOS](screenshot.png)
+
 A native macOS GUI wrapper for the [extract-xiso](https://github.com/XboxDev/extract-xiso) command-line utility. Extract-XISO allows creation, modification, and extraction of Xbox ISO files (XISOs), and this GUI version makes it accessible to macOS users through a native interface.
 
 The Xbox ISO format is a proprietary disc image format used by the original Xbox console. It is based on the ISO 9660 file system but includes additional metadata and encryption specific to the Xbox. Emulators, like XEMU, on the other hand, expect standard ISOs. Extract XISO is a tool that helps to extract the contents of Xbox ISOs and convert them into standard ISO that can be used by these emulators.
