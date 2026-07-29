@@ -13,7 +13,8 @@ A simple graphical user interface wrapper for the extract-xiso command-line tool
 - **File Browser Integration**: Browse for files and directories
 - **Progress Feedback**: Visual progress indicator and status updates
 - **Command Output**: View real-time command output
-- **Options Support**: Quiet mode and skip system update options
+- **Options Support**: Quiet mode, skip system update, auto-repackage, and
+  optional cleanup of extracted files after repackaging
 - **Automatic Updates**: Built-in update checker notifies you of new releases
   - Checks for updates automatically on launch (configurable)
   - Manual check available via Help menu
@@ -65,9 +66,29 @@ open build/Extract-XISO.app
 2. **Select Mode**: Choose from Extract, Create, List, or Rewrite
 3. **Choose File/Directory**: Click Browse to select your XISO file or directory
 4. **Set Output Directory** (optional): Choose where to extract/save files
-5. **Configure Options** (optional): Enable quiet mode or skip system updates
+5. **Configure Options** (optional): Click the disclosure triangle next to
+   **Options** to expand the list. While collapsed, a summary line shows which
+   options are currently switched on, and each expanded row carries an info
+   icon explaining what it does. The expanded/collapsed state is remembered
+   between launches.
 6. **Execute**: Click the Execute button to run the operation
 7. **View Results**: Monitor progress and view command output
+
+### Extract mode cleanup
+
+In Extract mode, **Auto-repackage extracted files (-c)** rebuilds the extracted
+tree into `<output>/<name>_repackaged.iso` (a decrypted ISO). Under it,
+**Delete extracted files after repackaging** removes the intermediate
+`<output>/<name>/` folder once that ISO exists — useful because an extracted
+Xbox image is routinely several GB of scratch data.
+
+- The folder is moved to the **Trash**, not permanently deleted.
+- The **original ISO is never deleted.**
+- Cleanup is skipped, with the reason printed to the output area, if
+  repackaging failed, if the repackaged ISO is missing or empty, or if the
+  source ISO happens to live inside the folder that would be removed.
+- The option is greyed out when auto-repackage is off, since it only applies
+  to files that repackaging produced.
 
 ## Preferences
 
@@ -77,6 +98,11 @@ Access preferences via **Extract-XISO > Preferences...** (⌘,)
   - Enabled by default
   - Only shows alerts if an update is available
   - Runs silently in the background after a 1-second delay
+
+Remembered automatically (no Preferences entry):
+
+- **Options section expanded**: whether the options list is open. Collapsed on
+  first run. Stored under the `OptionsExpanded` user default.
 
 ## Menu Features
 
@@ -96,7 +122,10 @@ Access preferences via **Extract-XISO > Preferences...** (⌘,)
 - **Mode Selection**: Dropdown to choose operation mode
 - **File Selection**: Text field and browse button for input files
 - **Output Directory**: Optional output location
-- **Options**: Checkboxes for quiet mode and skip system update
+- **Options**: A collapsible list (quiet mode, skip system update,
+  auto-repackage, delete extracted files). Collapsed by default; click the
+  disclosure triangle to expand. Each row has an info icon whose tooltip
+  explains the option, and the app remembers whether you left it open.
 - **Execute Button**: Runs the selected operation
 - **Progress Bar**: Shows when operation is running
 - **Status Label**: Displays current status

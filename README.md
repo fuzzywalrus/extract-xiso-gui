@@ -43,6 +43,9 @@ The GUI provides an intuitive interface for all extract-xiso operations:
 - Choose output directory  
 - Extract Xbox game files to folders
 - Creates a decrypted ISO
+- Optionally deletes the extracted working files once the decrypted ISO is
+  built, so you are not left with several GB of scratch data. The extracted
+  folder is moved to the Trash, and the original ISO is never touched.
 
 ### **Create Mode**
 - Select source directory

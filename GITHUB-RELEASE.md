@@ -1,4 +1,4 @@
-# Extract-XISO GUI v0.1.4
+# Extract-XISO GUI v0.1.6
 
 Native macOS GUI for the extract-xiso command-line tool. This release provides a double-clickable app while keeping full compatibility with the original CLI (extract-xiso v2.7.1).
 
@@ -45,10 +45,10 @@ Native macOS GUI for the extract-xiso command-line tool. This release provides a
 
 Choose your preferred format:
 
-- **ZIP Archive**: `extract-xiso-0.1.4-macos.zip`
+- **ZIP Archive**: `extract-xiso-0.1.6-macos.zip`
   - Extract and use immediately
   
-- **DMG Image**: `extract-xiso-0.1.4-macos.dmg` (when built via `build-release.sh`)
+- **DMG Image**: `extract-xiso-0.1.6-macos.dmg` (when built via `build-release.sh`)
   - Native macOS installer format
   - Mount and drag to Applications
 

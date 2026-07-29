@@ -1,23 +1,126 @@
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 
+// Info glyph that explains one option. The built-in NSView toolTip proved
+// unreliable here, so the hover behaviour is driven explicitly by a tracking
+// area and an NSPopover. Clicking toggles the same popover, which gives a
+// non-hover path for anyone who never rests the pointer long enough.
+//
+// Subclasses NSImageView deliberately: the control lookup in executeCommand:
+// matches only NSButton / NSTextField / NSPopUpButton, so this stays inert there.
+@interface InfoIconView : NSImageView
+@property (copy, nonatomic) NSString *helpText;
+@property (strong, nonatomic) NSPopover *helpPopover;
+- (void)hideHelp;
+@end
+
+@implementation InfoIconView
+
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    for (NSTrackingArea *existing in [self trackingAreas]) {
+        [self removeTrackingArea:existing];
+    }
+    // InVisibleRect keeps the area correct across the window resize that
+    // expanding and collapsing the options list performs
+    NSTrackingArea *area = [[NSTrackingArea alloc]
+        initWithRect:NSZeroRect
+             options:(NSTrackingMouseEnteredAndExited | NSTrackingActiveInActiveApp |
+                      NSTrackingInVisibleRect)
+               owner:self
+            userInfo:nil];
+    [self addTrackingArea:area];
+}
+
+- (void)showHelp {
+    if ([self.helpText length] == 0 || [self.helpPopover isShown]) { return; }
+
+    const CGFloat textWidth = 260, padding = 12;
+    NSFont *font = [NSFont systemFontOfSize:11];
+    NSRect measured = [self.helpText
+        boundingRectWithSize:NSMakeSize(textWidth, 10000)
+                     options:NSStringDrawingUsesLineFragmentOrigin
+                  attributes:@{NSFontAttributeName: font}];
+    CGFloat textHeight = ceil(NSHeight(measured));
+
+    NSTextField *label = [[NSTextField alloc]
+        initWithFrame:NSMakeRect(padding, padding, textWidth, textHeight)];
+    [label setStringValue:self.helpText];
+    [label setFont:font];
+    [label setEditable:NO];
+    [label setSelectable:NO];
+    [label setBordered:NO];
+    [label setDrawsBackground:NO];
+    [label setTextColor:[NSColor labelColor]];
+    [[label cell] setWraps:YES];
+
+    NSView *content = [[NSView alloc]
+        initWithFrame:NSMakeRect(0, 0, textWidth + padding * 2, textHeight + padding * 2)];
+    [content addSubview:label];
+
+    NSViewController *controller = [[NSViewController alloc] init];
+    [controller setView:content];
+
+    self.helpPopover = [[NSPopover alloc] init];
+    [self.helpPopover setContentViewController:controller];
+    [self.helpPopover setContentSize:content.frame.size];
+    [self.helpPopover setBehavior:NSPopoverBehaviorApplicationDefined];
+    [self.helpPopover setAnimates:NO];
+    [self.helpPopover showRelativeToRect:[self bounds]
+                                  ofView:self
+                           preferredEdge:NSRectEdgeMaxX];
+}
+
+- (void)hideHelp {
+    [self.helpPopover close];
+    self.helpPopover = nil;
+}
+
+- (void)mouseEntered:(NSEvent *)event { [self showHelp]; }
+- (void)mouseExited:(NSEvent *)event { [self hideHelp]; }
+
+- (void)mouseDown:(NSEvent *)event {
+    if ([self.helpPopover isShown]) {
+        [self hideHelp];
+    } else {
+        [self showHelp];
+    }
+}
+
+@end
+
 @interface ExtractXISOGUI : NSObject <NSApplicationDelegate>
 @property (strong, nonatomic) NSWindow *window;
 @property (strong, nonatomic) NSTextField *statusLabel;
 @property (strong, nonatomic) NSProgressIndicator *progressIndicator;
 @property (strong, nonatomic) NSTextView *outputView;
+@property (strong, nonatomic) NSButton *executeButton;
+// Collapsible options section
+@property (strong, nonatomic) NSButton *optionsDisclosureButton;
+@property (strong, nonatomic) NSTextField *optionsSummaryLabel;
+@property (strong, nonatomic) NSArray<NSView *> *optionRowViews;    // hidden when collapsed
+@property (strong, nonatomic) NSArray<NSView *> *viewsAboveOptions; // shifted when collapsing
+@property (assign, nonatomic) BOOL optionsExpanded; // what the user asked for
+@property (assign, nonatomic) BOOL layoutExpanded;  // what the frames currently reflect
 @end
+
+// Vertical space the option rows occupy. Collapsing removes exactly this much
+// from the window and slides everything above the disclosure row down to match.
+static const CGFloat kOptionsBlockHeight = 104;
+
+static NSString * const kOptionsExpandedKey = @"OptionsExpanded";
 
 @implementation ExtractXISOGUI
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+    // Registered before setupUI so the window can be built at the persisted size
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSDictionary *appDefaults = @{@"CheckForUpdatesOnLaunch": @YES,
+                                  kOptionsExpandedKey: @NO};
+    [defaults registerDefaults:appDefaults];
+
     [self setupMenu];
     [self setupUI];
-
-    // Register default preferences
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSDictionary *appDefaults = @{@"CheckForUpdatesOnLaunch": @YES};
-    [defaults registerDefaults:appDefaults];
 
     // Check for updates on launch if preference is enabled
     // Use a 1-second delay to ensure the app is fully initialized and run loop is running
@@ -148,139 +251,447 @@
 }
 
 
+// Static (non-editable) text. Kept free of a placeholderString so it is ignored
+// by the control lookup in executeCommand:, which matches text fields on theirs.
+- (NSTextField *)labelWithText:(NSString *)text
+                         frame:(NSRect)frame
+                     alignment:(NSTextAlignment)alignment
+                          font:(NSFont *)font
+                         color:(NSColor *)color {
+    NSTextField *label = [[NSTextField alloc] initWithFrame:frame];
+    [label setStringValue:text];
+    [label setEditable:NO];
+    [label setSelectable:NO];
+    [label setBordered:NO];
+    [label setDrawsBackground:NO];
+    [label setAlignment:alignment];
+    [label setFont:font];
+    [label setTextColor:color];
+    return label;
+}
+
+// Small info glyph parked at the right edge of an option row. NSImageView is
+// none of the three classes the control lookup matches on, so it is inert there.
+- (InfoIconView *)infoIconWithTooltip:(NSString *)tooltip atY:(CGFloat)y {
+    InfoIconView *icon = [[InfoIconView alloc] initWithFrame:NSMakeRect(514, y, 18, 18)];
+    NSImage *glyph = [NSImage imageWithSystemSymbolName:@"info.circle"
+                                accessibilityDescription:tooltip];
+    if (glyph) {
+        [icon setImage:glyph];
+        [icon setContentTintColor:[NSColor secondaryLabelColor]];
+    }
+    // Help comes from the popover, not the system tooltip, so the two cannot
+    // both appear on the same hover
+    [icon setHelpText:tooltip];
+    [icon setAccessibilityLabel:tooltip];
+    [icon setAutoresizingMask:NSViewMinXMargin | NSViewMinYMargin];
+    return icon;
+}
+
 - (void)setupUI {
-    // Create main window
-    self.window = [[NSWindow alloc] 
-        initWithContentRect:NSMakeRect(100, 100, 500, 500)
-        styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable)
+    // Layout grid. Origin is bottom-left, so rows are listed top-down by
+    // descending y. Window is 560x560 with 24pt margins; labels occupy
+    // x 24-120 (right-aligned) and controls start at x 132.
+    // Frames below describe the EXPANDED layout; collapsing is handled by
+    // applyOptionsExpanded:, which shifts the upper block down by
+    // kOptionsBlockHeight and shrinks the window to match.
+    const CGFloat windowWidth = 560;
+    const CGFloat windowHeight = 616;
+    const CGFloat margin = 24;
+    const CGFloat labelX = 24, labelWidth = 96;
+    const CGFloat controlX = 132;
+    const CGFloat fullWidth = windowWidth - (margin * 2);
+
+    self.window = [[NSWindow alloc]
+        initWithContentRect:NSMakeRect(100, 100, windowWidth, windowHeight)
+        styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+                   NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable)
         backing:NSBackingStoreBuffered
         defer:NO];
-    
+
     [self.window setTitle:@"Extract-XISO GUI"];
-    [self.window center];
-    [self.window makeKeyAndOrderFront:nil];
-    
-    // Create content view
+
     NSView *contentView = [[NSView alloc] initWithFrame:self.window.contentView.frame];
     [self.window setContentView:contentView];
-    
-    // Title label
-    NSTextField *titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 450, 460, 30)];
-    [titleLabel setStringValue:@"Based on Extract-XISO v2.7.1 - GUI Wrapper"];
-    [titleLabel setEditable:NO];
-    [titleLabel setBordered:NO];
-    [titleLabel setBackgroundColor:[NSColor clearColor]];
-    [titleLabel setFont:[NSFont boldSystemFontOfSize:16]];
-    [titleLabel setAlignment:NSTextAlignmentCenter];
+
+    // --- Header -----------------------------------------------------------
+    NSTextField *titleLabel = [self labelWithText:@"Extract-XISO"
+                                            frame:NSMakeRect(margin, 570, fullWidth, 22)
+                                        alignment:NSTextAlignmentCenter
+                                             font:[NSFont boldSystemFontOfSize:15]
+                                            color:[NSColor labelColor]];
+    [titleLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
     [contentView addSubview:titleLabel];
-    
-    // Mode selection
-    NSTextField *modeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 410, 100, 20)];
-    [modeLabel setStringValue:@"Mode:"];
-    [modeLabel setEditable:NO];
-    [modeLabel setBordered:NO];
-    [modeLabel setBackgroundColor:[NSColor clearColor]];
+
+    NSTextField *subtitleLabel = [self labelWithText:@"GUI wrapper for extract-xiso v2.7.1"
+                                               frame:NSMakeRect(margin, 552, fullWidth, 16)
+                                           alignment:NSTextAlignmentCenter
+                                                font:[NSFont systemFontOfSize:11]
+                                               color:[NSColor secondaryLabelColor]];
+    [subtitleLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    [contentView addSubview:subtitleLabel];
+
+    // NSBox is neither NSButton/NSTextField/NSPopUpButton, so the control
+    // lookup in executeCommand: skips it
+    NSBox *headerRule = [[NSBox alloc] initWithFrame:NSMakeRect(margin, 538, fullWidth, 1)];
+    [headerRule setBoxType:NSBoxSeparator];
+    [headerRule setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    [contentView addSubview:headerRule];
+
+    // --- Mode -------------------------------------------------------------
+    NSTextField *modeLabel = [self labelWithText:@"Mode:"
+                                           frame:NSMakeRect(labelX, 504, labelWidth, 17)
+                                       alignment:NSTextAlignmentRight
+                                            font:[NSFont systemFontOfSize:13]
+                                           color:[NSColor labelColor]];
+    [modeLabel setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:modeLabel];
-    
-    NSPopUpButton *modePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(130, 407, 200, 26)];
+
+    NSPopUpButton *modePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(controlX, 500, 220, 25)];
     [modePopup addItemWithTitle:@"Extract XISO (default)"];
     [modePopup addItemWithTitle:@"Create XISO"];
     [modePopup addItemWithTitle:@"List XISO contents"];
     [modePopup addItemWithTitle:@"Rewrite/Optimize XISO"];
+    [modePopup setToolTip:@"Extract unpacks an ISO, Create builds one from a folder, "
+                          @"List shows contents, Rewrite optimizes an existing ISO."];
+    [modePopup setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:modePopup];
-    
-    // File selection
-    NSTextField *fileLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 370, 100, 20)];
-    [fileLabel setStringValue:@"XISO File:"];
-    [fileLabel setEditable:NO];
-    [fileLabel setBordered:NO];
-    [fileLabel setBackgroundColor:[NSColor clearColor]];
+
+    // --- Input file -------------------------------------------------------
+    NSTextField *fileLabel = [self labelWithText:@"XISO File:"
+                                           frame:NSMakeRect(labelX, 466, labelWidth, 17)
+                                       alignment:NSTextAlignmentRight
+                                            font:[NSFont systemFontOfSize:13]
+                                           color:[NSColor labelColor]];
+    [fileLabel setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:fileLabel];
-    
-    NSTextField *fileField = [[NSTextField alloc] initWithFrame:NSMakeRect(130, 370, 250, 22)];
+
+    // Placeholder must keep the substring "XISO file" - executeCommand: finds
+    // this field by matching on it
+    NSTextField *fileField = [[NSTextField alloc] initWithFrame:NSMakeRect(controlX, 462, 300, 24)];
     [fileField setPlaceholderString:@"Select XISO file or directory..."];
+    [fileField setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
     [contentView addSubview:fileField];
-    
-    NSButton *browseButton = [[NSButton alloc] initWithFrame:NSMakeRect(390, 368, 90, 26)];
+
+    NSButton *browseButton = [[NSButton alloc] initWithFrame:NSMakeRect(444, 461, 92, 26)];
     [browseButton setTitle:@"Browse..."];
+    [browseButton setBezelStyle:NSBezelStyleRounded];
     [browseButton setTarget:self];
     [browseButton setAction:@selector(browseForFile:)];
+    [browseButton setAutoresizingMask:NSViewMinXMargin | NSViewMinYMargin];
     [contentView addSubview:browseButton];
-    
-    // Output directory
-    NSTextField *outputLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 330, 100, 20)];
-    [outputLabel setStringValue:@"Output Dir:"];
-    [outputLabel setEditable:NO];
-    [outputLabel setBordered:NO];
-    [outputLabel setBackgroundColor:[NSColor clearColor]];
+
+    // --- Output directory -------------------------------------------------
+    NSTextField *outputLabel = [self labelWithText:@"Output Dir:"
+                                             frame:NSMakeRect(labelX, 428, labelWidth, 17)
+                                         alignment:NSTextAlignmentRight
+                                              font:[NSFont systemFontOfSize:13]
+                                             color:[NSColor labelColor]];
+    [outputLabel setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:outputLabel];
-    
-    NSTextField *outputField = [[NSTextField alloc] initWithFrame:NSMakeRect(130, 330, 250, 22)];
+
+    // Placeholder must keep the substring "output" - see executeCommand:
+    NSTextField *outputField = [[NSTextField alloc] initWithFrame:NSMakeRect(controlX, 424, 300, 24)];
     [outputField setPlaceholderString:@"Required: Select output directory..."];
+    [outputField setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
     [contentView addSubview:outputField];
-    
-    NSButton *outputBrowseButton = [[NSButton alloc] initWithFrame:NSMakeRect(390, 328, 90, 26)];
+
+    NSButton *outputBrowseButton = [[NSButton alloc] initWithFrame:NSMakeRect(444, 423, 92, 26)];
     [outputBrowseButton setTitle:@"Browse..."];
+    [outputBrowseButton setBezelStyle:NSBezelStyleRounded];
     [outputBrowseButton setTarget:self];
     [outputBrowseButton setAction:@selector(browseForOutput:)];
+    [outputBrowseButton setAutoresizingMask:NSViewMinXMargin | NSViewMinYMargin];
     [contentView addSubview:outputBrowseButton];
-    
-    // Options
-    NSTextField *optionsLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 290, 100, 20)];
-    [optionsLabel setStringValue:@"Options:"];
-    [optionsLabel setEditable:NO];
-    [optionsLabel setBordered:NO];
-    [optionsLabel setBackgroundColor:[NSColor clearColor]];
+
+    // --- Options (collapsible) --------------------------------------------
+    // Disclosure row. Stays visible in both states; only the rows beneath it
+    // are hidden when collapsed.
+    NSTextField *optionsLabel = [self labelWithText:@"Options:"
+                                              frame:NSMakeRect(labelX, 384, labelWidth, 17)
+                                          alignment:NSTextAlignmentRight
+                                               font:[NSFont systemFontOfSize:13]
+                                              color:[NSColor labelColor]];
+    [optionsLabel setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:optionsLabel];
-    
-    NSButton *quietCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(130, 290, 120, 20)];
+
+    // Empty title, so the control lookup in executeCommand: cannot mistake it
+    // for one of the option checkboxes
+    self.optionsDisclosureButton = [[NSButton alloc] initWithFrame:NSMakeRect(controlX, 382, 18, 18)];
+    [self.optionsDisclosureButton setButtonType:NSButtonTypePushOnPushOff];
+    [self.optionsDisclosureButton setBezelStyle:NSBezelStyleDisclosure];
+    [self.optionsDisclosureButton setTitle:@""];
+    [self.optionsDisclosureButton setToolTip:@"Show or hide the extraction options."];
+    [self.optionsDisclosureButton setTarget:self];
+    [self.optionsDisclosureButton setAction:@selector(toggleOptions:)];
+    [self.optionsDisclosureButton setAutoresizingMask:NSViewMinYMargin];
+    [contentView addSubview:self.optionsDisclosureButton];
+
+    // Summarises what is switched on while the rows are hidden, so enabled
+    // options (including the destructive one) are never invisible
+    self.optionsSummaryLabel = [self labelWithText:@""
+                                             frame:NSMakeRect(controlX + 24, 384, 388, 17)
+                                         alignment:NSTextAlignmentLeft
+                                              font:[NSFont systemFontOfSize:11]
+                                             color:[NSColor secondaryLabelColor]];
+    [[self.optionsSummaryLabel cell] setLineBreakMode:NSLineBreakByTruncatingTail];
+    [self.optionsSummaryLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    [contentView addSubview:self.optionsSummaryLabel];
+
+    // One option per row, each with an info icon on the right whose tooltip
+    // explains it. 28pt row pitch; see kOptionsBlockHeight.
+    NSString *quietHelp = @"Suppresses the CLI's per-file progress lines. The final summary "
+                          @"still appears in the output area below.";
+    NSString *skipSystemHelp = @"Leaves the $SystemUpdate folder out of the extraction. It holds "
+                               @"the Xbox dashboard updater rather than game data.";
+    NSString *repackageHelp = @"After extracting, rebuilds the files into a decrypted "
+                              @"<name>_repackaged.iso in the output directory. The original ISO "
+                              @"is left untouched.";
+    NSString *cleanupHelp = @"Moves the extracted folder to the Trash once the repackaged ISO is "
+                            @"verified, reclaiming several GB of scratch space. Skipped if "
+                            @"repackaging fails. The original ISO is never deleted.";
+
+    NSButton *quietCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(controlX, 356, 370, 20)];
     [quietCheckbox setButtonType:NSButtonTypeSwitch];
     [quietCheckbox setTitle:@"Quiet mode (-q)"];
+    [quietCheckbox setToolTip:quietHelp];
+    [quietCheckbox setTarget:self];
+    [quietCheckbox setAction:@selector(optionCheckboxChanged:)];
+    [quietCheckbox setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:quietCheckbox];
-    
-    NSButton *skipSystemCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(260, 290, 200, 20)];
+    InfoIconView *quietInfo = [self infoIconWithTooltip:quietHelp atY:357];
+    [contentView addSubview:quietInfo];
+
+    NSButton *skipSystemCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(controlX, 328, 370, 20)];
     [skipSystemCheckbox setButtonType:NSButtonTypeSwitch];
     [skipSystemCheckbox setTitle:@"Skip $SystemUpdate (-s)"];
+    [skipSystemCheckbox setToolTip:skipSystemHelp];
+    [skipSystemCheckbox setTarget:self];
+    [skipSystemCheckbox setAction:@selector(optionCheckboxChanged:)];
+    [skipSystemCheckbox setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:skipSystemCheckbox];
-    
-    // Auto-repackage option (new checkbox)
-    NSButton *repackageCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(130, 270, 300, 20)];
+    InfoIconView *skipSystemInfo = [self infoIconWithTooltip:skipSystemHelp atY:329];
+    [contentView addSubview:skipSystemInfo];
+
+    NSButton *repackageCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(controlX, 300, 370, 20)];
     [repackageCheckbox setButtonType:NSButtonTypeSwitch];
     [repackageCheckbox setTitle:@"Auto-repackage extracted files (-c)"];
     [repackageCheckbox setState:NSControlStateValueOn]; // Checked by default
+    [repackageCheckbox setToolTip:repackageHelp];
+    [repackageCheckbox setTarget:self];
+    [repackageCheckbox setAction:@selector(optionCheckboxChanged:)];
+    [repackageCheckbox setAutoresizingMask:NSViewMinYMargin];
     [contentView addSubview:repackageCheckbox];
-    
-    // Execute button
-    NSButton *executeButton = [[NSButton alloc] initWithFrame:NSMakeRect(200, 240, 100, 30)];
-    [executeButton setTitle:@"Execute"];
-    [executeButton setTarget:self];
-    [executeButton setAction:@selector(executeCommand:)];
-    [contentView addSubview:executeButton];
-    
-    // Progress indicator
-    self.progressIndicator = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(20, 180, 460, 20)];
+    InfoIconView *repackageInfo = [self infoIconWithTooltip:repackageHelp atY:301];
+    [contentView addSubview:repackageInfo];
+
+    // Sub-option of auto-repackage, so indented one step under it
+    NSButton *cleanupCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(controlX + 20, 272, 350, 20)];
+    [cleanupCheckbox setButtonType:NSButtonTypeSwitch];
+    [cleanupCheckbox setTitle:@"Delete extracted files after repackaging"];
+    [cleanupCheckbox setState:NSControlStateValueOn]; // Checked by default
+    [cleanupCheckbox setToolTip:cleanupHelp];
+    [cleanupCheckbox setTarget:self];
+    [cleanupCheckbox setAction:@selector(optionCheckboxChanged:)];
+    [cleanupCheckbox setAutoresizingMask:NSViewMinYMargin];
+    [contentView addSubview:cleanupCheckbox];
+    InfoIconView *cleanupInfo = [self infoIconWithTooltip:cleanupHelp atY:273];
+    [contentView addSubview:cleanupInfo];
+
+    self.optionRowViews = @[quietCheckbox, quietInfo,
+                            skipSystemCheckbox, skipSystemInfo,
+                            repackageCheckbox, repackageInfo,
+                            cleanupCheckbox, cleanupInfo];
+    self.viewsAboveOptions = @[titleLabel, subtitleLabel, headerRule,
+                               modeLabel, modePopup,
+                               fileLabel, fileField, browseButton,
+                               outputLabel, outputField, outputBrowseButton,
+                               optionsLabel, self.optionsDisclosureButton, self.optionsSummaryLabel];
+
+    // --- Execute ----------------------------------------------------------
+    self.executeButton = [[NSButton alloc] initWithFrame:NSMakeRect((windowWidth - 120) / 2, 228, 120, 32)];
+    [self.executeButton setTitle:@"Execute"];
+    [self.executeButton setBezelStyle:NSBezelStyleRounded];
+    [self.executeButton setKeyEquivalent:@"\r"]; // default button - picks up the accent colour
+    [self.executeButton setTarget:self];
+    [self.executeButton setAction:@selector(executeCommand:)];
+    [self.executeButton setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin];
+    [contentView addSubview:self.executeButton];
+
+    // --- Progress and status ----------------------------------------------
+    self.progressIndicator = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(margin, 198, fullWidth, 20)];
     [self.progressIndicator setStyle:NSProgressIndicatorStyleBar];
     [self.progressIndicator setIndeterminate:YES];
     [self.progressIndicator setHidden:YES];
+    [self.progressIndicator setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
     [contentView addSubview:self.progressIndicator];
-    
-    // Status label
-    self.statusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 150, 460, 20)];
-    [self.statusLabel setStringValue:@"Ready"];
-    [self.statusLabel setEditable:NO];
-    [self.statusLabel setBordered:NO];
-    [self.statusLabel setBackgroundColor:[NSColor clearColor]];
-    [self.statusLabel setAlignment:NSTextAlignmentCenter];
+
+    self.statusLabel = [self labelWithText:@"Ready"
+                                     frame:NSMakeRect(margin, 174, fullWidth, 17)
+                                 alignment:NSTextAlignmentCenter
+                                      font:[NSFont systemFontOfSize:12]
+                                     color:[NSColor secondaryLabelColor]];
+    [self.statusLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
     [contentView addSubview:self.statusLabel];
-    
-    // Output text view  
-    NSScrollView *scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(20, 20, 460, 120)];
-    self.outputView = [[NSTextView alloc] initWithFrame:scrollView.contentView.frame];
+
+    // --- Output -----------------------------------------------------------
+    NSScrollView *scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(margin, margin, fullWidth, 138)];
+    [scrollView setBorderType:NSBezelBorder];
+    [scrollView setHasVerticalScroller:YES];
+    [scrollView setAutohidesScrollers:YES];
+    [scrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+    self.outputView = [[NSTextView alloc] initWithFrame:scrollView.contentView.bounds];
     [self.outputView setString:@"Command output will appear here..."];
     [self.outputView setEditable:NO];
+    [self.outputView setRichText:NO];
+    // CLI output is column-aligned, so it wants a fixed-pitch face
+    [self.outputView setFont:[NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightRegular]];
+    [self.outputView setTextColor:[NSColor labelColor]];
+    [self.outputView setTextContainerInset:NSMakeSize(4, 6)];
+    [self.outputView setAutoresizingMask:NSViewWidthSizable];
+    [[self.outputView textContainer] setWidthTracksTextView:YES];
     [scrollView setDocumentView:self.outputView];
-    [scrollView setHasVerticalScroller:YES];
     [contentView addSubview:scrollView];
+
+    // Cleanup only applies when repackaging, so mirror the repackage state
+    [self syncCleanupCheckboxEnabledState];
+
+    // Restore the persisted disclosure state before centring, so the window is
+    // centred at the size it will actually be shown at
+    [self.window setContentMinSize:NSMakeSize(windowWidth, windowHeight)];
+    self.layoutExpanded = YES; // frames above are the expanded layout
+    BOOL expanded = [[NSUserDefaults standardUserDefaults] boolForKey:kOptionsExpandedKey];
+    [self applyOptionsExpanded:expanded];
+    [self.window center];
+    [self.window makeKeyAndOrderFront:nil];
+}
+
+#pragma mark - Collapsible options
+
+- (IBAction)toggleOptions:(id)sender {
+    [self applyOptionsExpanded:!self.optionsExpanded];
+    [[NSUserDefaults standardUserDefaults] setBool:self.optionsExpanded forKey:kOptionsExpandedKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+- (void)applyOptionsExpanded:(BOOL)expanded {
+    self.optionsExpanded = expanded;
+
+    [self.optionsDisclosureButton setState:expanded ? NSControlStateValueOn : NSControlStateValueOff];
+    for (NSView *view in self.optionRowViews) {
+        // A popover left open over a row being hidden would float unanchored
+        if ([view isKindOfClass:[InfoIconView class]]) {
+            [(InfoIconView *)view hideHelp];
+        }
+        [view setHidden:!expanded];
+    }
+    // The summary only earns its place while the rows are hidden
+    [self.optionsSummaryLabel setHidden:expanded];
+    [self updateOptionsSummary];
+
+    // Frames as authored in setupUI are the expanded layout, so layoutExpanded
+    // starts YES and the geometry below runs only on an actual change
+    if (self.layoutExpanded == expanded) { return; }
+    self.layoutExpanded = expanded;
+
+    CGFloat delta = expanded ? kOptionsBlockHeight : -kOptionsBlockHeight;
+    NSView *contentView = self.window.contentView;
+
+    // Drive the geometry by hand: the autoresizing masks pin these views to the
+    // top of the window, which is right for a user-driven resize but would make
+    // collapsing steal height from the output view instead of compacting the
+    // dialog.
+    [contentView setAutoresizesSubviews:NO];
+
+    NSRect frame = [self.window frame];
+    frame.size.height += delta;
+    frame.origin.y -= delta; // keep the title bar where it is
+    [self.window setFrame:frame display:YES];
+
+    // Everything from the disclosure row up moves with the top edge; the
+    // execute button and output area keep their distance from the bottom.
+    for (NSView *view in self.viewsAboveOptions) {
+        NSRect viewFrame = [view frame];
+        viewFrame.origin.y += delta;
+        [view setFrame:viewFrame];
+    }
+
+    [contentView setAutoresizesSubviews:YES];
+
+    NSSize minSize = [self.window contentMinSize];
+    minSize.height += delta;
+    [self.window setContentMinSize:minSize];
+}
+
+// Lists the enabled options next to the collapsed disclosure triangle. Without
+// this, switched-on options - including the destructive cleanup - would be
+// completely invisible in the default collapsed state.
+- (void)updateOptionsSummary {
+    NSButton *quietCheckbox = nil, *skipSystemCheckbox = nil;
+    NSButton *repackageCheckbox = nil, *cleanupCheckbox = nil;
+
+    for (NSView *subview in [self.window.contentView subviews]) {
+        if (![subview isKindOfClass:[NSButton class]]) { continue; }
+        NSButton *button = (NSButton *)subview;
+        NSString *title = [button title];
+        if (title && [title containsString:@"Quiet"]) {
+            quietCheckbox = button;
+        } else if (title && [title containsString:@"SystemUpdate"]) {
+            skipSystemCheckbox = button;
+        } else if (title && [title containsString:@"Auto-repackage"]) {
+            repackageCheckbox = button;
+        } else if (title && [title containsString:@"Delete extracted"]) {
+            cleanupCheckbox = button;
+        }
+    }
+
+    NSMutableArray *enabled = [NSMutableArray array];
+    if ([quietCheckbox state] == NSControlStateValueOn) {
+        [enabled addObject:@"quiet"];
+    }
+    if ([skipSystemCheckbox state] == NSControlStateValueOn) {
+        [enabled addObject:@"skip $SystemUpdate"];
+    }
+    if ([repackageCheckbox state] == NSControlStateValueOn) {
+        [enabled addObject:@"auto-repackage"];
+        if ([cleanupCheckbox state] == NSControlStateValueOn) {
+            [enabled addObject:@"delete extracted files"];
+        }
+    }
+
+    NSString *summary = [enabled count] > 0
+        ? [enabled componentsJoinedByString:@", "]
+        : @"none enabled";
+    [self.optionsSummaryLabel setStringValue:summary];
+    [self.optionsSummaryLabel setToolTip:summary];
+}
+
+- (IBAction)optionCheckboxChanged:(id)sender {
+    [self syncCleanupCheckboxEnabledState];
+    [self updateOptionsSummary];
+}
+
+// Cleanup is a sub-option of auto-repackage - grey it out when repackaging is off
+- (void)syncCleanupCheckboxEnabledState {
+    NSButton *repackageCheckbox = nil;
+    NSButton *cleanupCheckbox = nil;
+
+    for (NSView *subview in [self.window.contentView subviews]) {
+        if ([subview isKindOfClass:[NSButton class]]) {
+            NSButton *button = (NSButton *)subview;
+            NSString *title = [button title];
+            if (title && [title containsString:@"Auto-repackage"]) {
+                repackageCheckbox = button;
+            } else if (title && [title containsString:@"Delete extracted"]) {
+                cleanupCheckbox = button;
+            }
+        }
+    }
+
+    if (cleanupCheckbox) {
+        [cleanupCheckbox setEnabled:([repackageCheckbox state] == NSControlStateValueOn)];
+    }
 }
 
 - (IBAction)browseForFile:(id)sender {
@@ -342,7 +753,9 @@
     [self.statusLabel setStringValue:@"Executing..."];
     [self.progressIndicator setHidden:NO];
     [self.progressIndicator startAnimation:nil];
-    
+    // Prevent a second click from spawning a concurrent task over the same paths
+    [self.executeButton setEnabled:NO];
+
     // Get values from UI - find the right elements more reliably
     NSPopUpButton *modePopup = nil;
     NSTextField *fileField = nil;
@@ -350,7 +763,8 @@
     NSButton *quietCheckbox = nil;
     NSButton *skipSystemCheckbox = nil;
     NSButton *repackageCheckbox = nil;
-    
+    NSButton *cleanupCheckbox = nil;
+
     // Search through subviews to find the right controls
     for (NSView *subview in [self.window.contentView subviews]) {
         if ([subview isKindOfClass:[NSPopUpButton class]]) {
@@ -372,10 +786,12 @@
                 skipSystemCheckbox = button;
             } else if (title && [title containsString:@"Auto-repackage"]) {
                 repackageCheckbox = button;
+            } else if (title && [title containsString:@"Delete extracted"]) {
+                cleanupCheckbox = button;
             }
         }
     }
-    
+
     NSString *selectedFile = [fileField stringValue];
     NSString *outputDir = [outputField stringValue];
     NSInteger selectedMode = [modePopup indexOfSelectedItem];
@@ -386,6 +802,7 @@
         [self.progressIndicator stopAnimation:nil];
         [self.progressIndicator setHidden:YES];
         [self.statusLabel setStringValue:@"Ready"];
+        [self.executeButton setEnabled:YES];
         return;
     }
     
@@ -396,6 +813,7 @@
         [self.progressIndicator stopAnimation:nil];
         [self.progressIndicator setHidden:YES];
         [self.statusLabel setStringValue:@"Ready"];
+        [self.executeButton setEnabled:YES];
         return;
     }
     
@@ -458,12 +876,18 @@
     
     // Check if we should auto-repackage after extraction
     BOOL shouldRepackage = (selectedMode == 0) && ([repackageCheckbox state] == NSControlStateValueOn);
-    
+    // Cleanup is a sub-option of repackaging - never runs on its own
+    BOOL shouldCleanup = shouldRepackage && ([cleanupCheckbox state] == NSControlStateValueOn);
+
     // Execute command
-    [self executeExtractXISO:arguments withFile:selectedFile outputDir:outputDir shouldRepackage:shouldRepackage];
+    [self executeExtractXISO:arguments
+                    withFile:selectedFile
+                   outputDir:outputDir
+             shouldRepackage:shouldRepackage
+       cleanupAfterRepackage:shouldCleanup];
 }
 
-- (void)executeExtractXISO:(NSArray *)arguments withFile:(NSString *)filePath outputDir:(NSString *)outputDir shouldRepackage:(BOOL)shouldRepackage {
+- (void)executeExtractXISO:(NSArray *)arguments withFile:(NSString *)filePath outputDir:(NSString *)outputDir shouldRepackage:(BOOL)shouldRepackage cleanupAfterRepackage:(BOOL)shouldCleanup {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSString *executablePath = nil;
         NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -499,6 +923,7 @@
                             [self.progressIndicator stopAnimation:nil];
                             [self.progressIndicator setHidden:YES];
                             [self.statusLabel setStringValue:@"Error: extract-xiso CLI binary not found"];
+                            [self.executeButton setEnabled:YES];
                             [self showAlert:@"Cannot find extract-xiso CLI binary. Please rebuild the application."];
                         });
                         return;
@@ -535,7 +960,10 @@
         // Handle auto-repackaging if extraction was successful
         NSString *finalOutput = output;
         int finalStatus = status;
-        
+        BOOL repackageRan = NO;
+        BOOL repackageSucceeded = NO;
+        BOOL cleanupSucceeded = NO;
+
         if (shouldRepackage && status == 0) {
             // Determine the extracted directory path (output dir is now required)
             NSString *fileName = [[filePath lastPathComponent] stringByDeletingPathExtension];
@@ -565,19 +993,99 @@
                 
                 [repackageTask waitUntilExit];
                 int repackageStatus = [repackageTask terminationStatus];
-                
+
+                repackageRan = YES;
+                repackageSucceeded = (repackageStatus == 0);
+
                 // Combine outputs
                 finalOutput = [NSString stringWithFormat:@"%@\n\n--- Auto-Repackaging ---\n%@", output, repackageOutput ?: @"No repackage output"];
                 finalStatus = (status == 0 && repackageStatus == 0) ? 0 : MAX(status, repackageStatus);
+
+                // Remove the extracted scratch files now that the ISO exists.
+                // Deliberately conservative: every guard below must pass, and a
+                // refusal is reported rather than silently skipped. The original
+                // source ISO is never a deletion target.
+                if (shouldCleanup) {
+                    NSString *cleanupMessage = nil;
+
+                    if (!repackageSucceeded) {
+                        cleanupMessage = [NSString stringWithFormat:
+                            @"Skipped: repackaging failed (exit code %d). Extracted files kept at:\n%@",
+                            repackageStatus, extractedDirPath];
+                    } else if ([fileName length] == 0 || [extractedDirPath isEqualToString:outputDir]) {
+                        // e.g. an input named ".iso" collapses extractedDirPath onto the output dir
+                        cleanupMessage = [NSString stringWithFormat:
+                            @"Skipped: refusing to delete the output directory itself:\n%@", outputDir];
+                    } else {
+                        NSDictionary *isoAttrs = [fileManager attributesOfItemAtPath:outputIsoPath error:NULL];
+                        unsigned long long isoSize = [isoAttrs fileSize];
+
+                        BOOL isDirectory = NO;
+                        BOOL extractedDirStillThere = [fileManager fileExistsAtPath:extractedDirPath
+                                                                        isDirectory:&isDirectory];
+
+                        // Guards against e.g. input /games/Halo/Halo.iso with output dir
+                        // /games, where the extracted dir would contain the source ISO
+                        NSString *standardizedDir = [extractedDirPath stringByStandardizingPath];
+                        NSString *standardizedSource = [filePath stringByStandardizingPath];
+                        BOOL sourceIsInsideExtractedDir =
+                            [standardizedSource hasPrefix:[standardizedDir stringByAppendingString:@"/"]];
+
+                        if (isoAttrs == nil || isoSize == 0) {
+                            cleanupMessage = [NSString stringWithFormat:
+                                @"Skipped: repackaged ISO is missing or empty. Extracted files kept at:\n%@",
+                                extractedDirPath];
+                        } else if (!extractedDirStillThere || !isDirectory) {
+                            cleanupMessage = [NSString stringWithFormat:
+                                @"Skipped: extracted path is missing or is not a directory:\n%@",
+                                extractedDirPath];
+                        } else if (sourceIsInsideExtractedDir) {
+                            cleanupMessage = [NSString stringWithFormat:
+                                @"Skipped: the original ISO lives inside the extracted directory, so "
+                                @"deleting it would destroy the source:\n%@", standardizedSource];
+                        } else {
+                            NSError *trashError = nil;
+                            NSURL *extractedDirURL = [NSURL fileURLWithPath:extractedDirPath];
+                            BOOL trashed = [fileManager trashItemAtURL:extractedDirURL
+                                                      resultingItemURL:NULL
+                                                                 error:&trashError];
+                            if (trashed) {
+                                cleanupSucceeded = YES;
+                                cleanupMessage = [NSString stringWithFormat:
+                                    @"Moved extracted files to the Trash:\n%@", extractedDirPath];
+                            } else {
+                                // The ISO was still produced, so this does not fail the run
+                                cleanupMessage = [NSString stringWithFormat:
+                                    @"Failed to move extracted files to the Trash: %@\nFiles kept at:\n%@",
+                                    trashError.localizedDescription ?: @"unknown error", extractedDirPath];
+                            }
+                        }
+                    }
+
+                    finalOutput = [NSString stringWithFormat:@"%@\n\n--- Cleanup ---\n%@",
+                                   finalOutput, cleanupMessage];
+                }
+            } else {
+                finalOutput = [NSString stringWithFormat:
+                    @"%@\n\n--- Auto-Repackaging ---\nSkipped: expected extracted directory not found:\n%@",
+                    output, extractedDirPath];
             }
         }
-        
+
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.progressIndicator stopAnimation:nil];
             [self.progressIndicator setHidden:YES];
-            
+            [self.executeButton setEnabled:YES];
+
             if (finalStatus == 0) {
-                if (shouldRepackage && status == 0) {
+                if (shouldRepackage && !repackageRan) {
+                    // Extraction succeeded but the repackage step never ran - say so
+                    [self.statusLabel setStringValue:@"Extraction completed, but repackaging was skipped (see output)"];
+                } else if (repackageSucceeded && cleanupSucceeded) {
+                    [self.statusLabel setStringValue:@"Extraction, repackaging and cleanup completed successfully"];
+                } else if (repackageSucceeded && shouldCleanup) {
+                    [self.statusLabel setStringValue:@"Extraction and repackaging completed, cleanup skipped (see output)"];
+                } else if (repackageSucceeded) {
                     [self.statusLabel setStringValue:@"Extraction and repackaging completed successfully"];
                 } else {
                     [self.statusLabel setStringValue:@"Command completed successfully"];

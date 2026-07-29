@@ -8,9 +8,24 @@ set -e  # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-VERSION="0.1.4"
+VERSION="0.1.6"
 RELEASE_DIR="release"
 DIST_DIR="$RELEASE_DIR/extract-xiso-$VERSION-macos"
+
+# Signing credentials, also used by sign.sh. Needed here because the standalone
+# CLI copy and the DMG itself are signed/notarized in this script.
+if [ -f ".env" ]; then
+    source .env
+else
+    echo "❌ .env file not found! Please create .env with your signing credentials."
+    exit 1
+fi
+
+if [ -z "$APPLE_ID" ] || [ -z "$APP_PASSWORD" ] || [ -z "$TEAM_ID" ] || [ -z "$SIGNING_IDENTITY" ]; then
+    echo "❌ Missing required environment variables in .env file:"
+    echo "   APPLE_ID, APP_PASSWORD, TEAM_ID, SIGNING_IDENTITY"
+    exit 1
+fi
 
 echo "🚀 Building Extract-XISO GUI Release v$VERSION"
 echo "================================================"
@@ -45,10 +60,24 @@ echo "✅ Build successful!"
 echo "🔐 Code signing and notarizing app..."
 ./sign.sh
 
-# Copy binaries to release directory (signed app)
+# Copy binaries to release directory (signed app).
+# ditto rather than cp -R so the stapled notarization ticket and extended
+# attributes survive the copy.
 echo "📦 Packaging release files..."
-cp -R "build/Extract-XISO.app" "$DIST_DIR/"
+ditto "build/Extract-XISO.app" "$DIST_DIR/Extract-XISO.app"
 cp "build/extract-xiso" "$DIST_DIR/"
+
+# The CLI produced by make is only adhoc/linker-signed. Left that way it would
+# fail notarization of the DMG, so give it a real Developer ID signature with
+# the hardened runtime and a secure timestamp.
+echo "✍️  Code signing standalone CLI binary..."
+codesign --force --options runtime --timestamp \
+    --sign "$SIGNING_IDENTITY" "$DIST_DIR/extract-xiso"
+codesign --verify --strict --verbose=2 "$DIST_DIR/extract-xiso"
+
+# Confirm the app kept its stapled ticket through the copy
+echo "🔍 Verifying copied app is still stapled..."
+xcrun stapler validate "$DIST_DIR/Extract-XISO.app"
 
 # Copy documentation
 cp "README.md" "$DIST_DIR/README-CLI.md"
@@ -128,15 +157,35 @@ cd "$RELEASE_DIR"
 zip -r "extract-xiso-$VERSION-macos.zip" "extract-xiso-$VERSION-macos/"
 cd ..
 
-# Create DMG (if hdiutil is available)
+# Create DMG, then sign / notarize / staple it. Notarizing the DMG also covers
+# the code inside it, which is what gets the standalone CLI notarized.
 if command -v hdiutil >/dev/null 2>&1; then
     echo "💿 Creating DMG image..."
     DMG_NAME="extract-xiso-$VERSION-macos.dmg"
-    hdiutil create -volname "Extract-XISO v$VERSION" -srcfolder "$DIST_DIR" -ov -format UDZO "$RELEASE_DIR/$DMG_NAME"
-    echo "✅ DMG created: $RELEASE_DIR/$DMG_NAME"
+    DMG_PATH="$RELEASE_DIR/$DMG_NAME"
+    hdiutil create -volname "Extract-XISO v$VERSION" -srcfolder "$DIST_DIR" -ov -format UDZO "$DMG_PATH"
+    echo "✅ DMG created: $DMG_PATH"
+
+    echo "✍️  Code signing DMG..."
+    codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG_PATH"
+
+    echo "📤 Submitting DMG to Apple for notarization..."
+    xcrun notarytool submit "$DMG_PATH" \
+        --apple-id "$APPLE_ID" \
+        --password "$APP_PASSWORD" \
+        --team-id "$TEAM_ID" \
+        --wait
+
+    echo "📎 Stapling notarization ticket to DMG..."
+    xcrun stapler staple "$DMG_PATH"
+
+    echo "✅ Validating DMG..."
+    xcrun stapler validate "$DMG_PATH"
+    spctl -a -t open --context context:primary-signature -vv "$DMG_PATH"
 fi
 
-# Generate checksums
+# Checksums last: stapling rewrites the DMG, so hashing any earlier would
+# publish a digest that does not match the shipped file.
 echo "🔐 Generating checksums..."
 cd "$RELEASE_DIR"
 shasum -a 256 *.zip > checksums.txt

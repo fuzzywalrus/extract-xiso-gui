@@ -20,7 +20,7 @@
 - `release/extract-xiso-<VERSION>-macos.dmg` - DMG disk image
 - `release/checksums.txt` - SHA-256 checksums
 
-Set `VERSION` in the script to match `Info.plist` (CFBundleShortVersionString); current is **0.1.4**.
+Set `VERSION` in the script to match `Info.plist` (CFBundleShortVersionString); current is **0.1.6**.
 
 ### 2. Create GitHub Release
 
@@ -30,8 +30,8 @@ Set `VERSION` in the script to match `Info.plist` (CFBundleShortVersionString); 
    - Click "Create a new release"
 
 2. **Set Release Details**
-   - **Tag version**: `v0.1.4` (match the app version in Info.plist)
-   - **Release title**: e.g. `Extract-XISO GUI v0.1.4`
+   - **Tag version**: `v0.1.6` (match the app version in Info.plist)
+   - **Release title**: e.g. `Extract-XISO GUI v0.1.6`
    - **Target**: Choose your branch (e.g. `main` or `master`)
 
 3. **Add Release Description**
